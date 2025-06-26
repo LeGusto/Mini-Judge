@@ -27,3 +27,8 @@ app.post("/judge", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+const PORT = 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});
