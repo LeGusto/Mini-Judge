@@ -6,27 +6,38 @@ const LANGUAGE_CONFIG = {
     image: "python:3.12-slim",
     cmd: (code) => ["python", "-c", code],
   },
+
+  cpp: {
+    image: "gcc:4.9",
+    cmd: (code) => [
+      "bash",
+      "-c",
+      `echo "${code}" > main.cpp && g++ main.cpp -o main && ./main`,
+    ],
+  },
 };
 
 async function executeCode({ code, language, input, problemId }) {
-  if (language !== "python") {
+  if (!LANGUAGE_CONFIG[language]) {
     throw new Error("Unsupported language");
   }
 
   // Pull the Docker image, destroy stream after pulling
-  await new Promise((resolve, reject) => {
-    docker.pull(LANGUAGE_CONFIG.python.image, (err, pullStream) => {
-      if (err) return reject(err);
+  // await new Promise((resolve, reject) => {
+  //   docker.pull(LANGUAGE_CONFIG[language].image, (err, pullStream) => {
+  //     if (err) return reject(err);
 
-      docker.modem.followProgress(pullStream, (err /*, output*/) => {
-        if (err) return reject(err);
+  //     docker.modem.followProgress(pullStream, (err /*, output*/) => {
+  //       if (err) return reject(err);
 
-        // when followProgress emits its “end” callback, destroy the stream
-        pullStream.destroy();
-        resolve();
-      });
-    });
-  });
+  //       // when followProgress emits its “end” callback, destroy the stream
+  //       pullStream.destroy();
+  //       resolve();
+  //     });
+  //   });
+  // });
+
+  // console.log(`Docker image pulled: ${LANGUAGE_CONFIG[language].image}`);
 
   const container = await docker.createContainer({
     Image: LANGUAGE_CONFIG[language].image,
@@ -42,8 +53,13 @@ async function executeCode({ code, language, input, problemId }) {
     },
   });
 
+  // console.log(
+  //   `Container created with ID: ${container.id} and language: ${language}`
+  // );
+
   try {
     await container.start();
+    // console.log(`Container started with ID: ${container.id}`);
 
     // Capture output
     let output = "";
@@ -51,7 +67,7 @@ async function executeCode({ code, language, input, problemId }) {
       stream: true,
       stdout: true,
       stderr: true,
-      demux: true,
+      logs: true,
     });
 
     // Create a promise to handle stream completion
@@ -74,6 +90,7 @@ async function executeCode({ code, language, input, problemId }) {
       ? parseFloat((stats.cpu_stats.cpu_usage.total_usage / 1e9).toFixed(2))
       : 0;
 
+    // console.log(output);
     // Clean output
     const cleanOutput = output.replace(/[^\x20-\x7E]+/g, "").trim();
 
