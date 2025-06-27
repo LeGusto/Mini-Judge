@@ -72,7 +72,8 @@ async function executeCode({ code, language, input, problemId }) {
 
     // Create a promise to handle stream completion
     const streamPromise = new Promise((resolve) => {
-      stream.on("data", (chunk) => (output += chunk.toString()));
+      // Note to self: The first 8 bytes of the stream are a header, so we skip them
+      stream.on("data", (chunk) => (output += chunk.slice(8).toString()));
       stream.on("end", resolve);
       stream.on("error", resolve);
     });

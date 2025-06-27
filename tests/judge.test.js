@@ -55,7 +55,6 @@ describe("executeCode", () => {
         if (result.error) {
           console.log(`Error: "${result.error}"`);
         }
-        console.log(`Raw Output: "${result.output}"`);
 
         // Clean the output to remove non-ASCII characters and trim whitespace
         const cleanOutput = result.output.replace(/[^\x20-\x7E]+/g, "").trim();
