@@ -49,8 +49,13 @@ describe("executeCode", () => {
           .replace(/"/g, '\\"'); // Escape double quotes in the code
         const expectedOutput = fs.readFileSync(outputFilePath, "utf-8").trim();
 
+        // Read the input file if it exists
+        const inputFilePath = path.join(subfolderPath, "input.txt");
+        const input = fs.existsSync(inputFilePath)
+          ? fs.readFileSync(inputFilePath, "utf-8").trim()
+          : null;
+
         const language = languageFolder; // Use the language folder name as the language
-        const input = "";
         const problemId = null;
 
         const result = await executeCode({ code, language, input, problemId });
@@ -63,7 +68,7 @@ describe("executeCode", () => {
 
         // Compare the actual output with the expected output
         expect(cleanOutput).toBe(expectedOutput);
-      }, 20000);
+      }, 3000);
     });
   });
 });

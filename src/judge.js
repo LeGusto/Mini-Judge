@@ -4,7 +4,13 @@ const config = require("./config");
 const LANGUAGE_CONFIG = {
   python: {
     image: "python:3.12-slim",
-    cmd: (code) => ["python", "-c", code],
+
+    cmd: (code, input) => {
+      if (input) {
+        return ["bash", "-c", `echo "${input}" | python -c "${code}"`];
+      }
+      return ["python", "-c", code];
+    },
   },
 
   // uses C++17 by default
@@ -23,28 +29,13 @@ async function executeCode({ code, language, input, problemId }) {
     throw new Error("Unsupported language");
   }
 
-  // Pull the Docker image, destroy stream after pulling
-  // await new Promise((resolve, reject) => {
-  //   docker.pull(LANGUAGE_CONFIG[language].image, (err, pullStream) => {
-  //     if (err) return reject(err);
-
-  //     docker.modem.followProgress(pullStream, (err /*, output*/) => {
-  //       if (err) return reject(err);
-
-  //       // when followProgress emits its “end” callback, destroy the stream
-  //       pullStream.destroy();
-  //       resolve();
-  //     });
-  //   });
-  // });
-
-  // console.log(`Docker image pulled: ${LANGUAGE_CONFIG[language].image}`);
-
   const container = await docker.createContainer({
     Image: LANGUAGE_CONFIG[language].image,
-    Cmd: LANGUAGE_CONFIG[language].cmd(code),
+    Cmd: LANGUAGE_CONFIG[language].cmd(code, input),
     AttachStdout: true,
     AttachStderr: true,
+    AttachStdin: true,
+    Tty: false,
     HostConfig: {
       Memory: config.constraints.memoryLimit * 1024 * 1024,
       CpuQuota: config.constraints.timeLimit * 100000,
@@ -66,6 +57,7 @@ async function executeCode({ code, language, input, problemId }) {
     let output = "";
     const stream = await container.attach({
       stream: true,
+      stdin: true,
       stdout: true,
       stderr: true,
       logs: true,
@@ -73,8 +65,14 @@ async function executeCode({ code, language, input, problemId }) {
 
     // Create a promise to handle stream completion
     const streamPromise = new Promise((resolve) => {
-      // Note to self: The first 8 bytes of the stream are a header, so we skip them
-      stream.on("data", (chunk) => (output += chunk.slice(8).toString()));
+      // Note to self: The first 8 bytes of the chunker are a header
+      stream.on("data", (chunk) => {
+        // stdout and stderr are mixed in the same stream
+        if (chunk[0] <= 2) {
+          // console.log(chunk);
+          output += chunk.slice(8).toString();
+        }
+      });
       stream.on("end", resolve);
       stream.on("error", resolve);
     });
@@ -95,6 +93,7 @@ async function executeCode({ code, language, input, problemId }) {
     // console.log(output);
     // Clean output
     const cleanOutput = output.replace(/[^\x20-\x7E]+/g, "").trim();
+    // console.log("Cleaned output:", cleanOutput);
 
     // Handle exit codes
     if (exitCode === 137)
@@ -112,7 +111,7 @@ async function executeCode({ code, language, input, problemId }) {
         memoryUsed,
       };
     if (exitCode !== 0) {
-      console.log(output);
+      console.log("RTE: ", exitCode, output);
       return { verdict: "RTE", output: "Runtime Error", timeUsed, memoryUsed };
     }
 
