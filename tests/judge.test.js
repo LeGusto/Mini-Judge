@@ -44,7 +44,9 @@ describe("executeCode", () => {
         }
 
         // Read the code and expected output
-        const code = fs.readFileSync(mainFilePath, "utf-8");
+        const code = fs
+          .readFileSync(mainFilePath, "utf-8")
+          .replace(/"/g, '\\"'); // Escape double quotes in the code
         const expectedOutput = fs.readFileSync(outputFilePath, "utf-8").trim();
 
         const language = languageFolder; // Use the language folder name as the language

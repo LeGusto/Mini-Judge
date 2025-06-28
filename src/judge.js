@@ -110,8 +110,10 @@ async function executeCode({ code, language, input, problemId }) {
         timeUsed,
         memoryUsed,
       };
-    if (exitCode !== 0)
+    if (exitCode !== 0) {
+      console.log(output);
       return { verdict: "RTE", output: "Runtime Error", timeUsed, memoryUsed };
+    }
 
     return { output: cleanOutput, timeUsed, memoryUsed };
   } finally {
