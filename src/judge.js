@@ -7,8 +7,9 @@ const LANGUAGE_CONFIG = {
     cmd: (code) => ["python", "-c", code],
   },
 
+  // uses C++17 by default
   cpp: {
-    image: "gcc:4.9",
+    image: "gcc:12",
     cmd: (code) => [
       "bash",
       "-c",
