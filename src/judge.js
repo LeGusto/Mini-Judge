@@ -1,37 +1,63 @@
 const docker = require("dockerode")();
 const config = require("./config");
+const path = require("path");
+
+// Used to transfer files from tmp to the container
+function createTarStream(filePaths) {
+  const dir = path.dirname(filePaths[0]);
+  const files = filePaths.map((f) => path.basename(f));
+  return tar.pack(dir, {
+    entries: files, // only include these files
+  });
+}
 
 const LANGUAGE_CONFIG = {
   python: {
     image: "python:3.12-slim",
 
-    cmd: (code, input) => {
-      if (input) {
-        return ["bash", "-c", `echo "${input}" | python -c "${code}"`];
+    cmd: (codeFilePath, inputFilePath) => {
+      if (inputFilePath) {
+        return ["bash", "-c", `python ${codeFilePath} < ${inputFilePath}`];
       }
-      return ["python", "-c", code];
+      return ["python", codeFilePath];
     },
   },
 
   // uses C++17 by default
   cpp: {
     image: "gcc:12",
-    cmd: (code) => [
-      "bash",
-      "-c",
-      `echo "${code}" > main.cpp && g++ main.cpp -o main && ./main`,
-    ],
+    cmd: (codeFilePath, inputFilePath) => {
+      // if (input) {
+      //   return [
+      //     "bash",
+      //     "-c",
+      //     `echo "${code}" > main.cpp && g++ main.cpp -o main && ./main  <<< "${input}"`,
+      //   ];
+      // }
+      // return [
+      //   "bash",
+      //   "-c",
+      //   `echo "${code}" > main.cpp && g++ main.cpp -o main && ./main`,
+      // ];'  const run = inputFilePath
+      const run = inputFilePath ? `./main < ${inputFilePath}` : `./main`;
+      return ["bash", "-c", `g++ ${codeFilePath} -o main && ${run}`];
+    },
   },
 };
 
-async function executeCode({ code, language, input, problemId }) {
+async function executeCode({
+  codeFilePath,
+  language,
+  inputFilePath,
+  problemId,
+}) {
   if (!LANGUAGE_CONFIG[language]) {
     throw new Error("Unsupported language");
   }
 
   const container = await docker.createContainer({
     Image: LANGUAGE_CONFIG[language].image,
-    Cmd: LANGUAGE_CONFIG[language].cmd(code, input),
+    Cmd: LANGUAGE_CONFIG[language].cmd(codeFilePath, inputFilePath),
     AttachStdout: true,
     AttachStderr: true,
     AttachStdin: true,
@@ -50,6 +76,11 @@ async function executeCode({ code, language, input, problemId }) {
   // );
 
   try {
+    // Put the necessary files into the container before starting it
+    console.log(codeFilePath);
+    const tarStream = createTarStream([codeFilePath]);
+    await container.putArchive(tarStream, { path: "/app" }); // inside container
+
     await container.start();
     // console.log(`Container started with ID: ${container.id}`);
 
