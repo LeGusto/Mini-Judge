@@ -1,14 +1,34 @@
 const docker = require("dockerode")();
-const config = require("./config");
+const config = require("../config");
 const path = require("path");
+const fs = require("fs");
+const tar = require("tar");
 
 // Used to transfer files from tmp to the container
 function createTarStream(filePaths) {
   const dir = path.dirname(filePaths[0]);
   const files = filePaths.map((f) => path.basename(f));
-  return tar.pack(dir, {
-    entries: files, // only include these files
-  });
+  return tar.create(
+    {
+      cwd: dir, // set the current working directory
+      entries: files, // only include these files
+    },
+    files
+  );
+}
+
+// Check if file exists in /tmp
+function verifyFileExists(fileName) {
+  const grandParentDir = path.dirname(__dirname);
+  const tmpDir = path.join(grandParentDir, "/tmp");
+  console.log(tmpDir, fileName);
+  const filePath = path.join(tmpDir, fileName);
+  console.log("Verifying file exists at:", filePath);
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`File does not exist: ${filePath}`);
+  }
+
+  return filePath;
 }
 
 const LANGUAGE_CONFIG = {
@@ -46,18 +66,25 @@ const LANGUAGE_CONFIG = {
 };
 
 async function executeCode({
-  codeFilePath,
+  codeFileName,
   language,
-  inputFilePath,
+  inputFileName,
   problemId,
 }) {
   if (!LANGUAGE_CONFIG[language]) {
     throw new Error("Unsupported language");
   }
 
+  console.log("codeFileName: ", codeFileName);
+  // Verify if neccessary files exist in tmp
+  codeFilePath = verifyFileExists(codeFileName);
+  inputFilePath = null;
+  inputFileName ? (inputFilePath = verifyFileExists(inputFileName)) : null;
+
+  // Create the container for code execution
   const container = await docker.createContainer({
     Image: LANGUAGE_CONFIG[language].image,
-    Cmd: LANGUAGE_CONFIG[language].cmd(codeFilePath, inputFilePath),
+    Cmd: LANGUAGE_CONFIG[language].cmd(codeFileName, inputFileName),
     AttachStdout: true,
     AttachStderr: true,
     AttachStdin: true,
@@ -79,7 +106,7 @@ async function executeCode({
     // Put the necessary files into the container before starting it
     console.log(codeFilePath);
     const tarStream = createTarStream([codeFilePath]);
-    await container.putArchive(tarStream, { path: "/app" }); // inside container
+    await container.putArchive(tarStream, { path: "/" }); // inside container
 
     await container.start();
     // console.log(`Container started with ID: ${container.id}`);

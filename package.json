@@ -2,7 +2,8 @@
   "dependencies": {
     "dockerode": "^4.0.7",
     "express": "^5.1.0",
-    "jest": "^30.0.3"
+    "jest": "^30.0.3",
+    "tar": "^7.4.3"
   },
   "scripts": {
     "test": "jest"

@@ -1,3 +1,5 @@
+const { type } = require("os");
+const config = require("../config");
 const { executeCode } = require("../src/judge");
 const fs = require("fs");
 const path = require("path");
@@ -15,7 +17,7 @@ function appendFileToTmp(filePath, fileName) {
   }
 
   // Default to actual file name if not provided
-  if (!fileName) filename = path.basename(filePath);
+  if (!fileName) fileName = path.basename(filePath);
 
   const destinationPath = path.join(tmpFolderPath, fileName);
 
@@ -27,7 +29,7 @@ function appendFileToTmp(filePath, fileName) {
     if (fs.existsSync(destinationPath)) {
       fs.unlinkSync(destinationPath);
     }
-  }, 60000); // 60 seconds
+  }, config.settings.tmp_file_TTL); // 60 seconds
 }
 
 describe("executeCode", () => {
@@ -68,7 +70,7 @@ describe("executeCode", () => {
 
         // Read the code and expected output
         // const code = fs
-        //   .readFileSync(mainFilePath, "utf-8")
+        //   .readFileSync(codeFilePath, "utf-8")
         //   .replace(/"/g, '\\"'); // Escape double quotes in the code
         const expectedOutput = fs.readFileSync(outputFilePath, "utf-8").trim();
 
@@ -77,19 +79,19 @@ describe("executeCode", () => {
 
         // Read the input file if it exists
         const inputFilePath = path.join(subfolderPath, "input.txt");
-        const mainFilePath = path.join(subfolderPath, "main" + fileExtension);
+        const codeFilePath = path.join(subfolderPath, "main" + fileExtension);
 
         const inputFileName = fs.existsSync(inputFilePath)
-          ? path.basename(inputFileName) + suffix
+          ? prefix + path.basename(inputFilePath)
           : null;
-        const mainFileName = prefix + "main" + fileExtension;
+        const codeFileName = prefix + "main" + fileExtension;
 
-        appendFileToTmp(mainFilePath, mainFileName);
+        appendFileToTmp(codeFilePath, codeFileName);
         if (inputFileName) {
           appendFileToTmp(inputFilePath, inputFileName);
         }
 
-        console.log(inputFileName, mainFileName, "Testing");
+        console.log(inputFileName, codeFileName, "Testing");
 
         // const input = fs.existsSync(inputFilePath)
         //   ? fs.readFileSync(inputFilePath, "utf-8").trim()
@@ -99,7 +101,7 @@ describe("executeCode", () => {
         const problemId = null;
 
         const result = await executeCode({
-          mainFileName,
+          codeFileName,
           language,
           inputFileName,
           problemId,
@@ -113,6 +115,7 @@ describe("executeCode", () => {
 
         // Compare the actual output with the expected output
         expect(cleanOutput).toBe(expectedOutput);
+        return;
       }, 3000);
     });
   });
