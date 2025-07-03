@@ -105,7 +105,8 @@ async function executeCode({
   try {
     // Put the necessary files into the container before starting it
     console.log(codeFilePath);
-    const tarStream = createTarStream([codeFilePath]);
+    const filesToTransfer = inputFileName ? [codeFilePath, inputFilePath] : [codeFilePath];
+    const tarStream = createTarStream(filesToTransfer);
     await container.putArchive(tarStream, { path: "/" }); // inside container
 
     await container.start();
