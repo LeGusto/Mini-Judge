@@ -1,13 +1,15 @@
+const config = require("../config");
+
 getVerdict = (result, expectedOutput) => {
   if (result.error) {
     return "Runtime Error";
   }
 
-  if (result.time > constraints.timeLimit) {
+  if (result.time > config.constraints.timeLimit) {
     return "Time Limit Exceeded";
   }
 
-  if (result.memory > constraints.memoryLimit) {
+  if (result.memory > config.constraints.memoryLimit) {
     return "Memory Limit Exceeded";
   }
 
@@ -17,3 +19,5 @@ getVerdict = (result, expectedOutput) => {
 
   return "Wrong Answer";
 };
+
+module.exports = { getVerdict }

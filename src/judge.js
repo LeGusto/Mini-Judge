@@ -66,25 +66,26 @@ const LANGUAGE_CONFIG = {
 };
 
 async function executeCode({
-  codeFileName,
+  codeFilename,
   language,
-  inputFileName,
+  inputFilename,
   problemId,
 }) {
+  stir = codeFilename + language;
   if (!LANGUAGE_CONFIG[language]) {
     throw new Error("Unsupported language");
   }
 
-  console.log("codeFileName: ", codeFileName);
+  console.log("codeFilename: ", codeFilename);
   // Verify if neccessary files exist in tmp
-  codeFilePath = verifyFileExists(codeFileName);
+  codeFilePath = verifyFileExists(codeFilename);
   inputFilePath = null;
-  inputFileName ? (inputFilePath = verifyFileExists(inputFileName)) : null;
+  inputFilename ? (inputFilePath = verifyFileExists(inputFilename)) : null;
 
   // Create the container for code execution
   const container = await docker.createContainer({
     Image: LANGUAGE_CONFIG[language].image,
-    Cmd: LANGUAGE_CONFIG[language].cmd(codeFileName, inputFileName),
+    Cmd: LANGUAGE_CONFIG[language].cmd(codeFilename, inputFilename),
     AttachStdout: true,
     AttachStderr: true,
     AttachStdin: true,
@@ -98,14 +99,11 @@ async function executeCode({
     },
   });
 
-  // console.log(
-  //   `Container created with ID: ${container.id} and language: ${language}`
-  // );
 
   try {
     // Put the necessary files into the container before starting it
     console.log(codeFilePath);
-    const filesToTransfer = inputFileName ? [codeFilePath, inputFilePath] : [codeFilePath];
+    const filesToTransfer = inputFilename ? [codeFilePath, inputFilePath] : [codeFilePath];
     const tarStream = createTarStream(filesToTransfer);
     await container.putArchive(tarStream, { path: "/" }); // inside container
 

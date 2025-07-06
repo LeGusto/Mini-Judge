@@ -81,17 +81,17 @@ describe("executeCode", () => {
         const inputFilePath = path.join(subfolderPath, "input.txt");
         const codeFilePath = path.join(subfolderPath, "main" + fileExtension);
 
-        const inputFileName = fs.existsSync(inputFilePath)
+        const inputFilename = fs.existsSync(inputFilePath)
           ? prefix + path.basename(inputFilePath)
           : null;
-        const codeFileName = prefix + "main" + fileExtension;
+        const codeFilename = prefix + "main" + fileExtension;
 
-        appendFileToTmp(codeFilePath, codeFileName);
-        if (inputFileName) {
-          appendFileToTmp(inputFilePath, inputFileName);
+        appendFileToTmp(codeFilePath, codeFilename);
+        if (inputFilename) {
+          appendFileToTmp(inputFilePath, inputFilename);
         }
 
-        console.log(inputFileName, codeFileName, "Testing");
+        console.log(inputFilename, codeFilename, "Testing");
 
         // const input = fs.existsSync(inputFilePath)
         //   ? fs.readFileSync(inputFilePath, "utf-8").trim()
@@ -101,9 +101,9 @@ describe("executeCode", () => {
         const problemId = null;
 
         const result = await executeCode({
-          codeFileName,
+          codeFilename,
           language,
-          inputFileName,
+          inputFilename,
           problemId,
         });
         if (result.error) {
