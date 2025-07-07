@@ -112,7 +112,7 @@ describe("executeCode", () => {
 
         // Clean the output to remove non-ASCII characters and trim whitespace
         const cleanOutput = result.output.replace(/[^\x20-\x7E]+/g, "").trim();
-
+        console.log(result.timeUsed)
         // Compare the actual output with the expected output
         expect(cleanOutput).toBe(expectedOutput);
         return;
