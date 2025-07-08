@@ -3,86 +3,48 @@ const config = require("../config");
 const path = require("path");
 const fs = require("fs");
 const tar = require("tar");
+const { performance } = require("perf_hooks");
 
-// Used to transfer files from tmp to the container
 function createTarStream(filePaths) {
   const dir = path.dirname(filePaths[0]);
   const files = filePaths.map((f) => path.basename(f));
-  return tar.create(
-    {
-      cwd: dir, // set the current working directory
-      entries: files, // only include these files
-    },
-    files
-  );
+  return tar.create({ cwd: dir, entries: files }, files);
 }
 
-// Check if file exists in /tmp
 function verifyFileExists(fileName) {
-  const grandParentDir = path.dirname(__dirname);
-  const tmpDir = path.join(grandParentDir, "/tmp");
-  console.log(tmpDir, fileName);
+  const tmpDir = path.join(path.dirname(__dirname), "tmp");
   const filePath = path.join(tmpDir, fileName);
-  console.log("Verifying file exists at:", filePath);
   if (!fs.existsSync(filePath)) {
     throw new Error(`File does not exist: ${filePath}`);
   }
-
   return filePath;
 }
 
 const LANGUAGE_CONFIG = {
   python: {
     image: "python:3.12-slim",
-
-    cmd: (codeFilePath, inputFilePath) => {
-      if (inputFilePath) {
-        return ["bash", "-c", `python ${codeFilePath} < ${inputFilePath}`];
-      }
-      return ["python", codeFilePath];
-    },
+    cmd: (codeFilePath, inputFilePath) =>
+      inputFilePath
+        ? ["bash", "-c", `python ${codeFilePath} < ${inputFilePath}`]
+        : ["python", codeFilePath],
   },
-
-  // uses C++17 by default
   cpp: {
     image: "gcc:12",
     cmd: (codeFilePath, inputFilePath) => {
-      // if (input) {
-      //   return [
-      //     "bash",
-      //     "-c",
-      //     `echo "${code}" > main.cpp && g++ main.cpp -o main && ./main  <<< "${input}"`,
-      //   ];
-      // }
-      // return [
-      //   "bash",
-      //   "-c",
-      //   `echo "${code}" > main.cpp && g++ main.cpp -o main && ./main`,
-      // ];'  const run = inputFilePath
       const run = inputFilePath ? `./main < ${inputFilePath}` : `./main`;
       return ["bash", "-c", `g++ ${codeFilePath} -o main && ${run}`];
     },
   },
 };
 
-async function executeCode({
-  codeFilename,
-  language,
-  inputFilename,
-  problemId,
-}) {
-  stir = codeFilename + language;
+async function executeCode({ codeFilename, language, inputFilename }) {
   if (!LANGUAGE_CONFIG[language]) {
     throw new Error("Unsupported language");
   }
 
-  console.log("codeFilename: ", codeFilename);
-  // Verify if neccessary files exist in tmp
-  codeFilePath = verifyFileExists(codeFilename);
-  inputFilePath = null;
-  inputFilename ? (inputFilePath = verifyFileExists(inputFilename)) : null;
+  const codeFilePath = verifyFileExists(codeFilename);
+  const inputFilePath = inputFilename ? verifyFileExists(inputFilename) : null;
 
-  // Create the container for code execution
   const container = await docker.createContainer({
     Image: LANGUAGE_CONFIG[language].image,
     Cmd: LANGUAGE_CONFIG[language].cmd(codeFilename, inputFilename),
@@ -92,26 +54,26 @@ async function executeCode({
     Tty: false,
     HostConfig: {
       Memory: config.constraints.memoryLimit * 1024 * 1024,
-      CpuQuota: config.constraints.timeLimit * 100000,
+      CpuPeriod: 100000,
+      CpuQuota: config.constraints.timeLimit * 100000, // timeLimit in seconds
       AutoRemove: true,
       NetworkMode: "none",
       MemorySwap: 0,
     },
   });
 
+  let timeoutHandle;
+  let wasKilled = false;
 
   try {
-    // Put the necessary files into the container before starting it
-    console.log(codeFilePath);
-    const filesToTransfer = inputFilename ? [codeFilePath, inputFilePath] : [codeFilePath];
+    const filesToTransfer = inputFilename
+      ? [codeFilePath, inputFilePath]
+      : [codeFilePath];
+
     const tarStream = createTarStream(filesToTransfer);
-    await container.putArchive(tarStream, { path: "/" }); // inside container
-
+    await container.putArchive(tarStream, { path: "/" });
     await container.start();
-    // console.log(`Container started with ID: ${container.id}`);
 
-    // Capture output
-    let output = "";
     const stream = await container.attach({
       stream: true,
       stdin: true,
@@ -120,13 +82,10 @@ async function executeCode({
       logs: true,
     });
 
-    // Create a promise to handle stream completion
+    let output = "";
     const streamPromise = new Promise((resolve) => {
-      // Note to self: The first 8 bytes of the chunker are a header
       stream.on("data", (chunk) => {
-        // stdout and stderr are mixed in the same stream
         if (chunk[0] <= 2) {
-          // console.log(chunk);
           output += chunk.slice(8).toString();
         }
       });
@@ -134,45 +93,67 @@ async function executeCode({
       stream.on("error", resolve);
     });
 
-    // Wait for execution to finish and stream to end
+    // Start wall timer
+    const startTime = performance.now();
+
+    // Kill container if it exceeds time limit
+    timeoutHandle = setTimeout(() => {
+      wasKilled = true;
+      container.kill().catch(() => {});
+    }, config.constraints.timeLimit * 1000);
+
     const [exitResult] = await Promise.all([container.wait(), streamPromise]);
+
+    const endTime = performance.now();
+    clearTimeout(timeoutHandle);
+
+    const timeUsed = parseFloat(((endTime - startTime) / 1000).toFixed(3)); // seconds
+
+    // Docker stats
+    let memoryUsed = 0;
+    try {
+      const stats = await container.stats({ stream: false });
+      memoryUsed = stats.memory_stats?.usage
+        ? Math.round(stats.memory_stats.usage / (1024 * 1024))
+        : 0;
+    } catch {}
+
+    const cleanOutput = output.replace(/[^\x20-\x7E]+/g, "").trim();
     const exitCode = exitResult.StatusCode;
 
-    // Get container stats
-    const stats = await container.stats({ stream: false });
-    const memoryUsed = stats.memory_stats?.usage
-      ? Math.round(stats.memory_stats.usage / (1024 * 1024))
-      : 0;
-    const timeUsed = stats.cpu_stats?.cpu_usage?.total_usage
-      ? parseFloat((stats.cpu_stats.cpu_usage.total_usage / 1e9).toFixed(2))
-      : 0;
-
-    // console.log(output);
-    // Clean output
-    const cleanOutput = output.replace(/[^\x20-\x7E]+/g, "").trim();
-    // console.log("Cleaned output:", cleanOutput);
-
-    // Handle exit codes
-    if (exitCode === 137)
-      return {
-        verdict: "MLE",
-        output: "Memory Limit Exceeded",
-        timeUsed,
-        memoryUsed,
-      };
-    if (exitCode === 124)
+    if (wasKilled || timeUsed > config.constraints.timeLimit) {
       return {
         verdict: "TLE",
         output: "Time Limit Exceeded",
         timeUsed,
         memoryUsed,
       };
-    if (exitCode !== 0) {
-      console.log("RTE: ", exitCode, output);
-      return { verdict: "RTE", output: "Runtime Error", timeUsed, memoryUsed };
     }
 
-    return { output: cleanOutput, timeUsed, memoryUsed };
+    if (exitCode === 137) {
+      return {
+        verdict: "MLE",
+        output: "Memory Limit Exceeded",
+        timeUsed,
+        memoryUsed,
+      };
+    }
+
+    if (exitCode !== 0) {
+      return {
+        verdict: "RTE",
+        output: "Runtime Error",
+        timeUsed,
+        memoryUsed,
+      };
+    }
+
+    return {
+      verdict: "OK",
+      output: cleanOutput,
+      timeUsed,
+      memoryUsed,
+    };
   } finally {
     try {
       if (container) {
@@ -182,6 +163,7 @@ async function executeCode({
     } catch (error) {
       console.error("Cleanup error:", error);
     }
+    clearTimeout(timeoutHandle);
   }
 }
 
