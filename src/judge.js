@@ -4,6 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const tar = require("tar");
 const { performance } = require("perf_hooks");
+const { code } = require("tar/types");
 
 function createTarStream(filePaths) {
   const dir = path.dirname(filePaths[0]);
@@ -156,6 +157,12 @@ async function executeCode({ codeFilename, language, inputFilename }) {
     };
   } finally {
     try {
+        if (fs.existsSync(codeFilePath)) {
+            fs.unlinkSync(codeFilePath);
+          }
+              if (fs.existsSync(inputFilePath)) {
+                fs.unlinkSync(inputFilePath);
+              }
       if (container) {
         await container.stop().catch(() => {});
         await container.remove({ force: true }).catch(() => {});
