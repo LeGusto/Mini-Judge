@@ -44,23 +44,20 @@ const upload = multer({ storage: storage });
 cleanTmpDir();
 
 app.post("/judge", upload.fields([
-  { name: 'code', maxCount: 1 },
-  { name: 'input', maxCount: 1 }
+  { name: 'code', maxCount: 1 }
 ]), async (req, res) => {
 
   const { language, expectedOutput } = req.body;
 
-  if (!req.files.code || !language || !expectedOutput) {
-    return res.status(400).json({ error: "Code, language and expected output are required" });
+  if (!req.files.code || !language || !problemID) {
+    return res.status(400).json({ error: "ProblemID, code and language are required" });
   }
 
   try {
-
-    inputFilename = req.files.input ? req.files.input[0].filename : null
     codeFilename = req.files.code[0].filename
 
-    console.log(codeFilename, language)
-    const result = await executeCode({codeFilename, language, inputFilename});
+    // console.log(codeFilename, language)
+    const result = await executeCode({codeFilename, language, problemID});
     const verdict = getVerdict(result, expectedOutput);
 
     res.json(verdict);

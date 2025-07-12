@@ -24,12 +24,11 @@ function appendFileToTmp(filePath, fileName) {
   const fileContent = fs.readFileSync(filePath, "utf-8");
   fs.writeFileSync(destinationPath, fileContent);
 
-  // Set a TTL (Time-To-Live) of 60 seconds for the file
   setTimeout(() => {
     if (fs.existsSync(destinationPath)) {
       fs.unlinkSync(destinationPath);
     }
-  }, config.settings.tmp_file_TTL); // 60 seconds
+  }, config.settings.tmp_file_TTL);
 }
 
 describe("executeCode", () => {
@@ -68,10 +67,6 @@ describe("executeCode", () => {
 
         const outputFilePath = path.join(subfolderPath, "output.txt");
 
-        // Read the code and expected output
-        // const code = fs
-        //   .readFileSync(codeFilePath, "utf-8")
-        //   .replace(/"/g, '\\"'); // Escape double quotes in the code
         const expectedOutput = fs.readFileSync(outputFilePath, "utf-8").trim();
 
         // Prefix for unique identification of test files in tmp
@@ -91,11 +86,7 @@ describe("executeCode", () => {
           appendFileToTmp(inputFilePath, inputFilename);
         }
 
-        console.log(inputFilename, codeFilename, "Testing");
-
-        // const input = fs.existsSync(inputFilePath)
-        //   ? fs.readFileSync(inputFilePath, "utf-8").trim()
-        //   : null;
+        // console.log(inputFilename, codeFilename, "Testing");
 
         const language = languageFolder; // Use the language folder name as the language
         const problemId = null;
