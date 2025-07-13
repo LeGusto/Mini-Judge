@@ -46,26 +46,68 @@ cleanTmpDir();
 app.post("/judge", upload.fields([
   { name: 'code', maxCount: 1 }
 ]), async (req, res) => {
-
-  const { language, expectedOutput } = req.body;
+  const { language, problemID } = req.body;
 
   if (!req.files.code || !language || !problemID) {
     return res.status(400).json({ error: "ProblemID, code and language are required" });
   }
 
+  const codeFilename = req.files.code[0].filename;
+
+  const problemDir = path.join("problems", problemID);
+  const inputDir = path.join(problemDir, "input");
+  const outputDir = path.join(problemDir, "output");
+
+  if (!fs.existsSync(inputDir) || !fs.existsSync(outputDir)) {
+    return res.status(400).json({ error: "Problem input/output directory not found" });
+  }
+
   try {
-    codeFilename = req.files.code[0].filename
+    const inputFiles = fs.readdirSync(inputDir).filter(f => f.endsWith(".in")).sort();
+    const results = [];
 
-    // console.log(codeFilename, language)
-    const result = await executeCode({codeFilename, language, problemID});
-    const verdict = getVerdict(result, expectedOutput);
+    for (const file of inputFiles) {
+      const inputPath = path.join(inputDir, file);
+      const outputPath = path.join(outputDir, file.replace(".in", ".out"));
 
-    res.json(verdict);
-  } catch (error) {
-     console.log(error)
+      if (!fs.existsSync(outputPath)) {
+        results.push({ test: file, verdict: "Missing Output File" });
+        continue;
+      }
+
+      const expectedOutput = fs.readFileSync(outputPath, "utf8");
+
+      const result = await executeCode({
+        codeFilename,
+        language,
+        inputFilename: file,
+        inputFilePath: inputPath
+      });
+
+      const verdict = getVerdict(result, expectedOutput);
+
+      results.push({
+        test: file,
+        verdict,
+        time: result.timeUsed,
+        memory: result.memoryUsed
+      });
+    }
+
+    const summary = {
+      total: results.length,
+      passed: results.filter(r => r.verdict === "Accepted").length,
+      failed: results.filter(r => r.verdict !== "Accepted").length
+    };
+
+    res.json({ summary, results });
+
+  } catch (err) {
+    console.error("Judging error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
 
 const PORT = 3000;
 app.listen(PORT, () => {
