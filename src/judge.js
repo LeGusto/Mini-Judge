@@ -38,13 +38,15 @@ const LANGUAGE_CONFIG = {
   },
 };
 
-async function executeCode({ codeFilename, language, inputFilename }) {
+async function executeCode({ codeFilename, language, inputFilename, inputFilePath }) {
   if (!LANGUAGE_CONFIG[language]) {
     throw new Error("Unsupported language");
   }
 
+  console.log(inputFilePath);
+
   const codeFilePath = verifyFileExists(codeFilename);
-  const inputFilePath = inputFilename ? verifyFileExists(inputFilename) : null;
+  // const inputFilePath = inputFilename ? verifyFileExists(inputFilename) : null;
 
   const container = await docker.createContainer({
     Image: LANGUAGE_CONFIG[language].image,

@@ -95,6 +95,7 @@ describe("executeCode", () => {
           codeFilename,
           language,
           inputFilename,
+          inputFilePath,
           problemId,
         });
         if (result.error) {
