@@ -64,35 +64,59 @@ app.post("/judge", upload.fields([
 
   try {
     const inputFiles = fs.readdirSync(inputDir).filter(f => f.endsWith(".in")).sort();
-    const results = [];
 
-    for (const file of inputFiles) {
-      const inputPath = path.join(inputDir, file);
-      const outputPath = path.join(outputDir, file.replace(".in", ".out"));
+    // Build input file list
+    const inputFileObjs = inputFiles.map(file => {
+      const fullPath = path.join(inputDir, file);
+      if (!fs.existsSync(fullPath)) {
+        throw new Error(`Input file not found: ${fullPath}`);
+      }
+      return {
+        filename: path.basename(file),        // Just '1.in'
+        absolutePath: fullPath                // Full path to use for tar copy
+      };
+    });
 
+    const dataJsonPath = path.join(problemDir, "data.json");
+
+    if (!fs.existsSync(dataJsonPath)) {
+      return res.status(400).json({ error: "Missing data.json in problem folder" });
+    }
+
+    const constraints = JSON.parse(fs.readFileSync(dataJsonPath, "utf8"));
+    const timeLimit = parseFloat(constraints.time_limit);
+    const memoryLimit = parseInt(constraints.memory_limit);
+
+    const executionResults = await executeCode({
+      codeFilename,
+      language,
+      inputFiles: inputFileObjs,
+      constraints: {
+        timeLimit,
+        memoryLimit,
+      },
+    });
+
+    // Match each result with expected output and determine verdict
+    const results = executionResults.map(result => {
+      const outputPath = path.join(outputDir, result.input.replace(".in", ".out"));
       if (!fs.existsSync(outputPath)) {
-        results.push({ test: file, verdict: "Missing Output File" });
-        continue;
+        return {
+          test: result.input,
+          verdict: "Missing Output File",
+        };
       }
 
       const expectedOutput = fs.readFileSync(outputPath, "utf8");
-
-      const result = await executeCode({
-        codeFilename,
-        language,
-        inputFilename: file,
-        inputFilePath: inputPath
-      });
-
       const verdict = getVerdict(result, expectedOutput);
 
-      results.push({
-        test: file,
+      return {
+        test: result.input,
         verdict,
         time: result.timeUsed,
         memory: result.memoryUsed
-      });
-    }
+      };
+    });
 
     const summary = {
       total: results.length,
@@ -107,6 +131,7 @@ app.post("/judge", upload.fields([
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
 
 
 const PORT = 3000;
