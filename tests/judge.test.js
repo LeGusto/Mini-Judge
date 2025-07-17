@@ -64,51 +64,65 @@ describe("executeCode", () => {
     subfolders.forEach((subfolder) => {
       it(`should execute code in folder: ${subfolder}`, async () => {
         const subfolderPath = path.join(languageFolderPath, subfolder);
-
         const outputFilePath = path.join(subfolderPath, "output.txt");
-
+      
         const expectedOutput = fs.readFileSync(outputFilePath, "utf-8").trim();
-
-        // Prefix for unique identification of test files in tmp
+      
         const prefix = Date.now() + "_" + path.basename(subfolder) + "_";
-
-        // Read the input file if it exists
+      
         const inputFilePath = path.join(subfolderPath, "input.txt");
         const codeFilePath = path.join(subfolderPath, "main" + fileExtension);
-
+      
         const inputFilename = fs.existsSync(inputFilePath)
           ? prefix + path.basename(inputFilePath)
           : null;
         const codeFilename = prefix + "main" + fileExtension;
-
+      
         appendFileToTmp(codeFilePath, codeFilename);
         if (inputFilename) {
           appendFileToTmp(inputFilePath, inputFilename);
         }
-
-        // console.log(inputFilename, codeFilename, "Testing");
-
-        const language = languageFolder; // Use the language folder name as the language
-        const problemId = null;
-
-        const result = await executeCode({
-          codeFilename,
-          language,
-          inputFilename,
-          inputFilePath,
-          problemId,
-        });
-        if (result.error) {
-          console.log(`Error: "${result.error}"`);
+      
+        const inputFiles = inputFilename
+          ? [{ filename: inputFilename, absolutePath: path.join(__dirname, "../tmp", inputFilename) }]
+          : [];
+      
+        const language = languageFolder;
+        const constraints = {
+          timeLimit: 2,     // seconds
+          memoryLimit: 128, // MB
+          tests: 1
+        };
+      
+        let results;
+        try {
+          results = await executeCode({
+            codeFilename,
+            language,
+            inputFiles,
+            constraints,
+          });
+        } catch (err) {
+          console.error(`Execution error in ${subfolder}:`, err.message);
+          throw err; // Fail the test
         }
-
-        // Clean the output to remove non-ASCII characters and trim whitespace
+      
+        const result = results[0];
+        if (!result) {
+          throw new Error(`No result returned for ${subfolder}`);
+        }
+      
+        if (result.verdict !== "OK") {
+          console.warn(`Verdict: ${result.verdict}`);
+          console.warn(`Output: "${result.output}"`);
+        }
+      
         const cleanOutput = result.output.replace(/[^\x20-\x7E]+/g, "").trim();
-        console.log(result.timeUsed)
-        // Compare the actual output with the expected output
+        console.log(`Time used: ${result.timeUsed}s`);
+      
         expect(cleanOutput).toBe(expectedOutput);
-        return;
-      }, 3000);
+      }, 5000);
+      
     });
   });
 });

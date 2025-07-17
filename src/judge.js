@@ -49,7 +49,8 @@ async function executeCode({ codeFilename, language, inputFiles = [], constraint
 
   const results = [];
 
-  for (const input of inputFiles) {
+  for (i = 0; i < constraints.tests; i++) {
+    const input = i < inputFiles.length ? inputFiles[i] : null;
     const inputFilePath = input?.absolutePath || null;
 
     const container = await docker.createContainer({
