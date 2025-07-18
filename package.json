@@ -8,5 +8,9 @@
   },
   "scripts": {
     "test": "jest"
+  },
+  "devDependencies": {
+    "fs-extra": "^11.3.0",
+    "supertest": "^7.1.3"
   }
 }

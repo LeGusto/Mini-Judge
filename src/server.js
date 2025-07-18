@@ -86,6 +86,7 @@ app.post("/judge", upload.fields([
     const constraints = JSON.parse(fs.readFileSync(dataJsonPath, "utf8"));
     const timeLimit = parseFloat(constraints.time_limit);
     const memoryLimit = parseInt(constraints.memory_limit);
+    const tests = parseInt(constraints.tests);
 
     const executionResults = await executeCode({
       codeFilename,
@@ -94,6 +95,7 @@ app.post("/judge", upload.fields([
       constraints: {
         timeLimit,
         memoryLimit,
+        tests,
       },
     });
 
@@ -147,6 +149,8 @@ const shutdown = () => {
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 process.on('exit', shutdown);
+
+module.exports = app;
 
 /*
 curl -X POST http://localhost:3000/judge \
