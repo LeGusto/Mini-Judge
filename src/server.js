@@ -1,6 +1,5 @@
 const express = require("express");
-const { executeCode } = require("./judge");
-const { getVerdict } = require("./verdict");
+const queueManager = require("./queue_manager");
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -54,6 +53,7 @@ app.post("/judge", upload.fields([
 
   const codeFilename = req.files.code[0].filename;
 
+  // Validate problem exists
   const problemDir = path.join("problems", problemID);
   const inputDir = path.join(problemDir, "input");
   const outputDir = path.join(problemDir, "output");
@@ -63,78 +63,36 @@ app.post("/judge", upload.fields([
   }
 
   try {
-    const inputFiles = fs.readdirSync(inputDir).filter(f => f.endsWith(".in")).sort();
-
-    // Build input file list
-    const inputFileObjs = inputFiles.map(file => {
-      const fullPath = path.join(inputDir, file);
-      if (!fs.existsSync(fullPath)) {
-        throw new Error(`Input file not found: ${fullPath}`);
-      }
-      return {
-        filename: path.basename(file),        // Just '1.in'
-        absolutePath: fullPath                // Full path to use for tar copy
-      };
-    });
-
-    const dataJsonPath = path.join(problemDir, "data.json");
-
-    if (!fs.existsSync(dataJsonPath)) {
-      return res.status(400).json({ error: "Missing data.json in problem folder" });
-    }
-
-    const constraints = JSON.parse(fs.readFileSync(dataJsonPath, "utf8"));
-    const timeLimit = parseFloat(constraints.time_limit);
-    const memoryLimit = parseInt(constraints.memory_limit);
-    const tests = parseInt(constraints.tests);
-
-    const executionResults = await executeCode({
-      codeFilename,
+    // Add submission to queue
+    const submissionId = await queueManager.addSubmission({
       language,
-      inputFiles: inputFileObjs,
-      constraints: {
-        timeLimit,
-        memoryLimit,
-        tests,
-      },
+      problemID,
+      codeFilename
     });
 
-    // Match each result with expected output and determine verdict
-    const results = executionResults.map(result => {
-      const outputPath = path.join(outputDir, result.input.replace(".in", ".out"));
-      if (!fs.existsSync(outputPath)) {
-        return {
-          test: result.input,
-          verdict: "Missing Output File",
-        };
-      }
-
-      const expectedOutput = fs.readFileSync(outputPath, "utf8");
-      const verdict = getVerdict(result, expectedOutput);
-
-      return {
-        test: result.input,
-        verdict,
-        time: result.timeUsed,
-        memory: result.memoryUsed
-      };
+    res.json({ 
+      submissionId,
+      status: "queued",
+      message: "Submission added to queue for processing"
     });
-
-    const summary = {
-      total: results.length,
-      passed: results.filter(r => r.verdict === "Accepted").length,
-      failed: results.filter(r => r.verdict !== "Accepted").length
-    };
-
-    res.json({ summary, results });
 
   } catch (err) {
-    console.error("Judging error:", err);
+    console.error("Queue error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-
+// Get submission status
+app.get("/submission/:id", (req, res) => {
+  const submissionId = req.params.id;
+  const submission = queueManager.getSubmissionStatus(submissionId);
+  
+  if (!submission) {
+    return res.status(404).json({ error: "Submission not found" });
+  }
+  
+  res.json(submission);
+});
 
 const PORT = 3000;
 app.listen(PORT, () => {

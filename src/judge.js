@@ -49,7 +49,7 @@ async function executeCode({ codeFilename, language, inputFiles = [], constraint
 
   const results = [];
 
-  for (i = 0; i < constraints.tests; i++) {
+  for (let i = 0; i < constraints.tests; i++) {
     const input = i < inputFiles.length ? inputFiles[i] : null;
     const inputFilePath = input?.absolutePath || null;
 

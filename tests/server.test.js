@@ -3,33 +3,26 @@ const path = require("path");
 const fs = require("fs-extra");
 const app = require("../src/server"); // assuming server.js exports your app
 
-jest.mock("../src/judge", () => ({
-  executeCode: jest.fn(() =>
-    Promise.resolve([
-      {
-        input: "1.in",
-        timeUsed: 0.1,
-        memoryUsed: 256,
-        stdout: "Hello, World!\n",
-      },
-      {
-        input: "2.in",
-        timeUsed: 0.12,
-        memoryUsed: 128,
-        stdout: "Hello, World!\n",
-      },
-      {
-        input: "3.in",
-        timeUsed: 0.08,
-        memoryUsed: 100,
-        stdout: "Hello, World!\n",
-      },
-    ])
-  ),
-}));
-
-jest.mock("../src/verdict", () => ({
-  getVerdict: jest.fn(() => "Accepted"),
+jest.mock("../src/queue_manager", () => ({
+  addSubmission: jest.fn(() => Promise.resolve("sub_1234567890_1")),
+  getSubmissionStatus: jest.fn((id) => ({
+    id,
+    status: "completed",
+    progress: 100,
+    results: [
+      { test: "1.in", verdict: "Accepted", time: 0.1, memory: 256 },
+      { test: "2.in", verdict: "Accepted", time: 0.12, memory: 128 },
+      { test: "3.in", verdict: "Accepted", time: 0.08, memory: 100 }
+    ],
+    summary: { total: 3, passed: 3, failed: 0 }
+  })),
+  getAllSubmissions: jest.fn(() => []),
+  getQueueStats: jest.fn(() => ({
+    queueLength: 0,
+    activeWorkers: 0,
+    maxWorkers: 3,
+    totalSubmissions: 1
+  }))
 }));
 
 describe("POST /judge with constraints.tests", () => {
@@ -63,7 +56,7 @@ describe("POST /judge with constraints.tests", () => {
     await fs.remove(problemDir);
   });
 
-  test("should process all tests defined in constraints", async () => {
+  test("should add submission to queue", async () => {
     const res = await request(app)
       .post("/judge")
       .field("language", "cpp")
@@ -71,10 +64,19 @@ describe("POST /judge with constraints.tests", () => {
       .attach("code", Buffer.from("// dummy cpp code"), "main.cpp");
 
     expect(res.status).toBe(200);
-    expect(res.body).toHaveProperty("summary");
-    expect(res.body.summary.total).toBe(3);
-    expect(res.body.summary.passed).toBe(3);
-    expect(res.body.results).toHaveLength(3);
-    expect(res.body.results.every(r => r.verdict === "Accepted")).toBe(true);
+    expect(res.body).toHaveProperty("submissionId");
+    expect(res.body).toHaveProperty("status");
+    expect(res.body.status).toBe("queued");
   });
+
+  test("should get submission status", async () => {
+    const res = await request(app)
+      .get("/submission/sub_1234567890_1");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty("status");
+    expect(res.body).toHaveProperty("results");
+    expect(res.body).toHaveProperty("summary");
+  });
+
 });

@@ -4,7 +4,7 @@ const { executeCode } = require("../src/judge");
 const fs = require("fs");
 const path = require("path");
 
-// Append copes of files to tmp folder
+// Append copies of files to tmp folder
 function appendFileToTmp(filePath, fileName) {
   const tmpFolderPath = path.join(__dirname, "../tmp");
 
@@ -24,11 +24,8 @@ function appendFileToTmp(filePath, fileName) {
   const fileContent = fs.readFileSync(filePath, "utf-8");
   fs.writeFileSync(destinationPath, fileContent);
 
-  setTimeout(() => {
-    if (fs.existsSync(destinationPath)) {
-      fs.unlinkSync(destinationPath);
-    }
-  }, config.settings.tmp_file_TTL);
+  // Return the path for manual cleanup instead of using setTimeout
+  return destinationPath;
 }
 
 describe("executeCode", () => {
@@ -38,6 +35,9 @@ describe("executeCode", () => {
     .filter((folder) =>
       fs.statSync(path.join(testFolder, folder)).isDirectory()
     );
+
+  // Track created files for cleanup
+  const createdFiles = [];
 
   languageSubfolders.forEach((languageFolder) => {
     const languageFolderPath = path.join(testFolder, languageFolder);
@@ -78,9 +78,13 @@ describe("executeCode", () => {
           : null;
         const codeFilename = prefix + "main" + fileExtension;
       
-        appendFileToTmp(codeFilePath, codeFilename);
+        const codeFilePathTmp = appendFileToTmp(codeFilePath, codeFilename);
+        createdFiles.push(codeFilePathTmp);
+        
+        let inputFilePathTmp = null;
         if (inputFilename) {
-          appendFileToTmp(inputFilePath, inputFilename);
+          inputFilePathTmp = appendFileToTmp(inputFilePath, inputFilename);
+          createdFiles.push(inputFilePathTmp);
         }
       
         const inputFiles = inputFilename
@@ -123,6 +127,19 @@ describe("executeCode", () => {
         expect(cleanOutput).toBe(expectedOutput);
       }, 5000);
       
+    });
+  });
+
+  // Cleanup created files after all tests
+  afterAll(() => {
+    createdFiles.forEach(filePath => {
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (err) {
+        console.warn(`Failed to cleanup file ${filePath}:`, err.message);
+      }
     });
   });
 });
