@@ -40,7 +40,7 @@ jobs:
     - name: Start Mini-Judge server and run tests
       run: |
         # Start server in background
-        sudo npm start &
+        sudo node src/server.js &
         SERVER_PID=$!
         
         # Wait for server to start
