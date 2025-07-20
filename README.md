@@ -1,8 +1,6 @@
-# Mini-Judge: Online Judge System
+# Mini-Judge: Lightweight Online Judge System
 
-A secure online judge system for competitive programming competitions. Submit code, get instant feedback.
-
-![CI/CD](https://github.com/LeGusto/Mini-Judge/workflows/Mini-Judge%20CI%2FCD/badge.svg)
+A secure online judge system for competitive programming competitions. Built using Node.js and Docker.
 
 ## 🚀 Features
 
