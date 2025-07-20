@@ -2,10 +2,10 @@ name: Mini-Judge CI/CD
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch: # Allow manual runs
+  workflow_dispatch:
 
 jobs:
   test:
