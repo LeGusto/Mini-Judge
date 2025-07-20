@@ -3,6 +3,7 @@ const queueManager = require("./queue_manager");
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { prewarmContainers, cleanupContainerPool } = require('./judge');
 
 function cleanTmpDir() {
   const grandParentDir = path.dirname(__dirname);
@@ -95,12 +96,27 @@ app.get("/submission/:id", (req, res) => {
 });
 
 const PORT = 3000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server is running on http://localhost:${PORT}`);
+  
+  // Pre-warm containers for consistent performance
+  try {
+    await prewarmContainers();
+  } catch (err) {
+    console.warn("Failed to pre-warm containers:", err.message);
+  }
 });
 
-const shutdown = () => {
+const shutdown = async () => {
   cleanTmpDir();
+  
+  // Cleanup container pool
+  try {
+    await cleanupContainerPool();
+  } catch (err) {
+    console.error("Failed to cleanup container pool:", err.message);
+  }
+  
   process.exit();
 };
 

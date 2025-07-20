@@ -1,0 +1,103 @@
+name: Mini-Judge CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: # Allow manual runs
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Setup Docker
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Start Docker daemon
+      run: |
+        sudo systemctl start docker
+        sudo systemctl status docker
+        
+    - name: Pull Docker images
+      run: |
+        docker pull python:3.12-slim
+        docker pull gcc:12
+      
+    - name: Start Mini-Judge server and run tests
+      run: |
+        # Start server in background
+        sudo npm start &
+        SERVER_PID=$!
+        
+        # Wait for server to start
+        sleep 10
+        
+        # Run all tests
+        sudo npm test
+        
+        # Wait for processing and check status
+        sleep 10
+        
+        # Kill server
+        kill $SERVER_PID || true
+        
+    - name: Test dependencies
+      run: |
+        # Check that all required dependencies are installed
+        node -e "
+          const required = ['express', 'dockerode', 'multer', 'tar'];
+          const pkg = require('./package.json');
+          
+          for (const dep of required) {
+            if (!pkg.dependencies[dep]) {
+              throw new Error(\`Missing dependency: \${dep}\`);
+            }
+          }
+          
+          console.log('✅ All required dependencies present');
+        "
+        
+    - name: Performance test
+      run: |
+        # Test basic performance characteristics
+        echo "Testing performance characteristics..."
+        
+        # Test file creation speed
+        start=$(date +%s.%N)
+        for i in {1..10}; do
+          echo "test $i" > "tmp/test_$i.txt"
+        done
+        end=$(date +%s.%N)
+        duration=$(echo "$end - $start" | bc)
+        echo "File creation: $duration seconds for 10 files"
+        
+        # Test JSON parsing speed
+        start=$(date +%s.%N)
+        for i in {1..100}; do
+          node -e "JSON.parse('{\"test\": \"value\"}')" > /dev/null
+        done
+        end=$(date +%s.%N)
+        duration=$(echo "$end - $start" | bc)
+        echo "JSON parsing: $duration seconds for 100 operations"
+        
+        echo "✅ Performance tests completed"
+        
+    - name: Cleanup
+      run: |
+        # Clean up test files
+        rm -rf tmp/*
+        rm -rf problems/test-problem

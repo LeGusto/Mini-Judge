@@ -1,21 +1,24 @@
 # Mini-Judge: Online Judge System
 
-A secure online judge system for competitive programming competitions. Submit code, get instant feedback, and compete with others.
+A secure online judge system for competitive programming competitions. Submit code, get instant feedback.
+
+![CI/CD](https://github.com/LeGusto/Mini-Judge/workflows/Mini-Judge%20CI%2FCD/badge.svg)
 
 ## 🚀 Features
 
 - **Secure Code Execution**: Run code safely in isolated Docker containers
 - **Multiple Languages**: Support for C++ and Python (easily extensible)
-- **Real-time Results**: Get instant feedback on your submissions
 - **Queue System**: Handle multiple submissions simultaneously
 - **Resource Limits**: Configurable time and memory constraints
+- **Easy Problem Creation**: Add new problems with simple file structure
 
 ## 🏗️ How It Works
 
 1. **Submit Code**: Upload your solution in C++ or Python
-2. **Secure Execution**: Your code runs in an isolated Docker container
-3. **Automatic Testing**: System tests against predefined test cases
-4. **Instant Results**: Get verdict (Accepted, Wrong Answer, Time Limit Exceeded, etc.)
+2. **Queue Processing**: Your submission joins the processing queue
+3. **Secure Execution**: Code runs in an isolated Docker container
+4. **Automatic Testing**: System tests against predefined test cases
+5. **Get Results**: Receive verdict (Accepted, Wrong Answer, Time Limit Exceeded, etc.)
 
 ## 📦 Quick Start
 
@@ -53,17 +56,18 @@ curl http://localhost:3000/submission/sub_1234567890_1
 
 ## 🔧 Configuration
 
-### Problem Setup
-Create a problem directory with:
+### Creating New Problems
+Adding new problems is simple! Create a directory in `problems/` with this structure:
+
 ```
 problems/your_problem/
-├── data.json          # Time/memory limits
-├── input/             # Test input files
-├── output/            # Expected output files
-└── sol.cpp           # Sample solution
+├── data.json          # Time/memory limits and test count
+├── input/             # Test input files (1.in, 2.in, etc.)
+├── output/            # Expected output files (1.out, 2.out, etc.)
+└── sol.cpp           # Sample solution (optional)
 ```
 
-### Example Problem
+### Example Problem Setup
 ```json
 // problems/1/data.json
 {
@@ -72,6 +76,12 @@ problems/your_problem/
   "tests": "14"
 }
 ```
+
+### Test Files
+- **Input files**: `input/1.in`, `input/2.in`, etc.
+- **Output files**: `output/1.out`, `output/2.out`, etc.
+- **File format**: Plain text files
+- **Naming**: Must match exactly (1.in → 1.out)
 
 ## 🔒 Security
 

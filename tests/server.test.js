@@ -1,7 +1,7 @@
 const request = require("supertest");
 const path = require("path");
 const fs = require("fs-extra");
-const app = require("../src/server"); // assuming server.js exports your app
+const app = require("../src/server");
 
 jest.mock("../src/queue_manager", () => ({
   addSubmission: jest.fn(() => Promise.resolve("sub_1234567890_1")),
@@ -77,6 +77,19 @@ describe("POST /judge with constraints.tests", () => {
     expect(res.body).toHaveProperty("status");
     expect(res.body).toHaveProperty("results");
     expect(res.body).toHaveProperty("summary");
+  });
+
+  test("should handle real problem submission", async () => {
+    const res = await request(app)
+      .post("/judge")
+      .field("language", "cpp")
+      .field("problemID", "1")
+      .attach("code", path.join(process.cwd(), "problems/1/sol.cpp"), "sol.cpp");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty("submissionId");
+    expect(res.body).toHaveProperty("status");
+    expect(res.body.status).toBe("queued");
   });
 
 });
