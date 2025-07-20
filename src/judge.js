@@ -5,111 +5,6 @@ const tar = require("tar");
 const os = require("os");
 const { performance } = require("perf_hooks");
 
-// Container pool for consistent performance
-const containerPool = {
-  python: null,
-  cpp: null,
-  lastUsed: {}
-};
-
-// Pre-warm containers for consistent startup times
-async function prewarmContainers() {
-  console.log("Pre-warming containers for consistent performance...");
-  
-  for (const language of ['python', 'cpp']) {
-    try {
-      const container = await docker.createContainer({
-        Image: LANGUAGE_CONFIG[language].image,
-        Cmd: ["sleep", "infinity"], // Keep container alive
-        AttachStdout: true,
-        AttachStderr: true,
-        AttachStdin: true,
-        Tty: false,
-        HostConfig: {
-          Memory: 512 * 1024 * 1024, // 512MB default
-          CpuPeriod: 100000,
-          CpuQuota: 200000, // 2 seconds default
-          CpusetCpus: "0",
-          AutoRemove: false, // Don't auto-remove pre-warmed containers
-          NetworkMode: "none",
-          MemorySwap: 0,
-          IpcMode: "private",
-          PidMode: "host",
-          Privileged: false,
-          ReadonlyRootfs: true,
-          SecurityOpt: ["no-new-privileges"],
-          CapDrop: ["ALL"],
-          Tmpfs: {
-            "/tmp": "size=100m,noexec,nosuid,nodev"
-          }
-        },
-      });
-      
-      await container.start();
-      containerPool[language] = container;
-      containerPool.lastUsed[language] = Date.now();
-      console.log(`Pre-warmed ${language} container`);
-    } catch (err) {
-      console.warn(`Failed to pre-warm ${language} container:`, err.message);
-    }
-  }
-}
-
-// Clean up pre-warmed containers
-async function cleanupContainerPool() {
-  for (const language of ['python', 'cpp']) {
-    if (containerPool[language]) {
-      try {
-        await containerPool[language].stop();
-        await containerPool[language].remove();
-        containerPool[language] = null;
-      } catch (err) {
-        console.error(`Failed to cleanup ${language} container:`, err.message);
-      }
-    }
-  }
-}
-
-// Get or create container for execution
-async function getContainer(language, constraints) {
-  // Use pre-warmed container if available and recent
-  const now = Date.now();
-  const timeSinceLastUse = now - (containerPool.lastUsed[language] || 0);
-  
-  if (containerPool[language] && timeSinceLastUse < 30000) { // 30 seconds
-    containerPool.lastUsed[language] = now;
-    return containerPool[language];
-  }
-  
-  // Create new container with specific constraints
-  return await docker.createContainer({
-    Image: LANGUAGE_CONFIG[language].image,
-    Cmd: ["sleep", "infinity"],
-    AttachStdout: true,
-    AttachStderr: true,
-    AttachStdin: true,
-    Tty: false,
-    HostConfig: {
-      Memory: constraints.memoryLimit * 1024 * 1024,
-      CpuPeriod: 100000,
-      CpuQuota: constraints.timeLimit * 100000,
-      CpusetCpus: "0",
-      AutoRemove: true,
-      NetworkMode: "none",
-      MemorySwap: 0,
-      IpcMode: "private",
-      PidMode: "host",
-      Privileged: false,
-      ReadonlyRootfs: true,
-      SecurityOpt: ["no-new-privileges"],
-      CapDrop: ["ALL"],
-      Tmpfs: {
-        "/tmp": "size=100m,noexec,nosuid,nodev"
-      }
-    },
-  });
-}
-
 function createTarStream(filePaths) {
   const tmpFolder = fs.mkdtempSync(path.join(os.tmpdir(), "judge-"));
   const tempPaths = [];
@@ -158,7 +53,25 @@ async function executeCode({ codeFilename, language, inputFiles = [], constraint
     const input = i < inputFiles.length ? inputFiles[i] : null;
     const inputFilePath = input?.absolutePath || null;
 
-    const container = await getContainer(language, constraints);
+    const container = await docker.createContainer({
+      Image: LANGUAGE_CONFIG[language].image,
+      Cmd: LANGUAGE_CONFIG[language].cmd(
+        path.basename(codeFilename),
+        inputFilePath ? path.basename(inputFilePath) : null
+      ),
+      AttachStdout: true,
+      AttachStderr: true,
+      AttachStdin: true,
+      Tty: false,
+      HostConfig: {
+        Memory: constraints.memoryLimit * 1024 * 1024,
+        CpuPeriod: 100000,
+        CpuQuota: constraints.timeLimit * 100000,
+        AutoRemove: true,
+        NetworkMode: "none",
+        MemorySwap: 0,
+      },
+    });
 
     let timeoutHandle;
     let wasKilled = false;
@@ -170,23 +83,14 @@ async function executeCode({ codeFilename, language, inputFiles = [], constraint
 
       const tarStream = createTarStream(filesToTransfer);
       await container.putArchive(tarStream, { path: "/" });
-      
-      // Execute the command in the container
-      const exec = await container.exec({
-        Cmd: LANGUAGE_CONFIG[language].cmd(
-          path.basename(codeFilename),
-          inputFilePath ? path.basename(inputFilePath) : null
-        ),
-        AttachStdout: true,
-        AttachStderr: true,
-        AttachStdin: true,
-        Tty: false,
-      });
+      await container.start();
 
-      const stream = await exec.start({
+      const stream = await container.attach({
+        stream: true,
         stdin: true,
         stdout: true,
         stderr: true,
+        logs: true,
       });
 
       let output = "";
@@ -203,10 +107,10 @@ async function executeCode({ codeFilename, language, inputFiles = [], constraint
       const startTime = performance.now();
       timeoutHandle = setTimeout(() => {
         wasKilled = true;
-        exec.kill().catch(() => {});
+        container.kill().catch(() => {});
       }, constraints.timeLimit * 1000);
 
-      const [exitResult] = await Promise.all([exec.wait(), streamPromise]);
+      const [exitResult] = await Promise.all([container.wait(), streamPromise]);
 
       const endTime = performance.now();
       clearTimeout(timeoutHandle);
@@ -269,4 +173,4 @@ async function executeCode({ codeFilename, language, inputFiles = [], constraint
   return results;
 }
 
-module.exports = { executeCode, prewarmContainers, cleanupContainerPool };
+module.exports = { executeCode };
