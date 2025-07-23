@@ -32,7 +32,7 @@ cd Mini-Judge
 npm install
 
 # Start the server
-npm start
+sudo node src/server.js
 ```
 
 The server will run on `http://localhost:3000`
