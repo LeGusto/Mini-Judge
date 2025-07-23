@@ -1,12 +1,9 @@
-const config = require("../config");
-
 function normalize(text) {
   return text
     .trim()
     .replace(/\r\n/g, "\n") // Normalize line endings
     .replace(/[ \t]+\n/g, "\n") // Remove trailing whitespace on lines
     .replace(/\s+$/g, "") // Remove trailing blank lines
-    .replace(/\s+/g, " "); // Optional: normalize all whitespace (careful!)
 }
 
 function getVerdict(result, expectedOutput) {
