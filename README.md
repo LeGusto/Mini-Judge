@@ -60,9 +60,11 @@ Adding new problems is simple! Create a directory in `problems/` with this struc
 ```
 problems/your_problem/
 ├── data.json          # Time/memory limits and test count
-├── input/             # Test input files (1.in, 2.in, etc.)
 ├── output/            # Expected output files (1.out, 2.out, etc.)
-└── sol.cpp           # Sample solution (optional)
+├── input/             # Test input files (1.in, 2.in, etc.) (optional)
+├── checker.js         # Custom solution validator (optional)
+└── sol.cpp            # Sample solution (optional)
+
 ```
 
 ### Example Problem Setup
@@ -76,7 +78,7 @@ problems/your_problem/
 ```
 
 ### Test Files
-- **Input files**: `input/1.in`, `input/2.in`, etc.
+- **Input files**: `input/1.in`, `input/2.in`, etc. (optional)
 - **Output files**: `output/1.out`, `output/2.out`, etc.
 - **File format**: Plain text files
 - **Naming**: Must match exactly (1.in → 1.out)
