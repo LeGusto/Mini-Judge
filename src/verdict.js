@@ -1,12 +1,14 @@
+const path = require("path");
+
 function normalize(text) {
   return text
     .trim()
     .replace(/\r\n/g, "\n") // Normalize line endings
     .replace(/[ \t]+\n/g, "\n") // Remove trailing whitespace on lines
-    .replace(/\s+$/g, "") // Remove trailing blank lines
+    .replace(/\s+$/g, ""); // Remove trailing blank lines
 }
 
-function getVerdict(result, expectedOutput) {
+function getVerdict(result, expectedOutput, checkerPath) {
   if (result.verdict === "TLE") {
     return "Time Limit Exceeded";
   }
@@ -22,7 +24,18 @@ function getVerdict(result, expectedOutput) {
   const actual = normalize(result.output || "");
   const expected = normalize(expectedOutput || "");
 
-  if (actual === expected) {
+  let checker;
+  if (checkerPath) {
+    if (!path.isAbsolute(checkerPath)) {
+      checkerPath = path.join(__dirname, "..", checkerPath);
+    }
+    checker = require(checkerPath);
+  }
+
+  // If the checker is not provided, use the default checker
+  if (checker && checker(actual, expected)) {
+    return "Accepted";
+  } else if (actual === expected) {
     return "Accepted";
   }
 

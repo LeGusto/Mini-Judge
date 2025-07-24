@@ -16,7 +16,10 @@ function createTarStream(filePaths) {
     tempPaths.push(tempTarget);
   }
 
-  return tar.create({ cwd: tmpFolder }, tempPaths.map(p => path.basename(p)));
+  return tar.create(
+    { cwd: tmpFolder },
+    tempPaths.map((p) => path.basename(p))
+  );
 }
 
 const LANGUAGE_CONFIG = {
@@ -36,7 +39,12 @@ const LANGUAGE_CONFIG = {
   },
 };
 
-async function executeCode({ codeFilename, language, inputFiles = [], constraints }) {
+async function executeCode({
+  codeFilename,
+  language,
+  inputFiles = [],
+  constraints,
+}) {
   if (!LANGUAGE_CONFIG[language]) {
     throw new Error("Unsupported language");
   }
@@ -144,6 +152,7 @@ async function executeCode({ codeFilename, language, inputFiles = [], constraint
 
       results.push({
         input: input?.filename,
+        test: i + 1,
         verdict,
         output: finalOutput,
         timeUsed,

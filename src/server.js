@@ -48,6 +48,8 @@ app.post(
   async (req, res) => {
     const { language, problemID } = req.body;
 
+    console.log(req.body);
+
     if (!req.files.code || !language || !problemID) {
       return res
         .status(400)
@@ -61,10 +63,10 @@ app.post(
     const inputDir = path.join(problemDir, "input");
     const outputDir = path.join(problemDir, "output");
 
-    if (!fs.existsSync(inputDir) || !fs.existsSync(outputDir)) {
+    if (!fs.existsSync(outputDir)) {
       return res
         .status(400)
-        .json({ error: "Problem input/output directory not found" });
+        .json({ error: "Problem output directory not found" });
     }
 
     try {
