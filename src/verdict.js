@@ -1,5 +1,6 @@
 const path = require("path");
 
+// Normalize the output text
 function normalize(text) {
   return text
     .trim()
@@ -8,6 +9,7 @@ function normalize(text) {
     .replace(/\s+$/g, ""); // Remove trailing blank lines
 }
 
+// Get the verdict
 function getVerdict(result, expectedOutput, checkerPath) {
   if (result.verdict === "TLE") {
     return "Time Limit Exceeded";
@@ -24,6 +26,7 @@ function getVerdict(result, expectedOutput, checkerPath) {
   const actual = normalize(result.output || "");
   const expected = normalize(expectedOutput || "");
 
+  // Initialize the checker
   let checker;
   if (checkerPath) {
     if (!path.isAbsolute(checkerPath)) {
@@ -32,10 +35,12 @@ function getVerdict(result, expectedOutput, checkerPath) {
     checker = require(checkerPath);
   }
 
-  // If the checker is not provided, use the default checker
+  // If the checker is provided and returns true, return "Accepted"
   if (checker && checker(actual, expected)) {
     return "Accepted";
-  } else if (actual === expected) {
+  }
+
+  if (actual === expected) {
     return "Accepted";
   }
 

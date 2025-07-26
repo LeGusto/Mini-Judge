@@ -3,27 +3,18 @@ const queueManager = require("./queue_manager");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const { cleanTmpDir } = require("./fileUtils");
 
-function cleanTmpDir() {
-  const grandParentDir = path.dirname(__dirname);
-  const tmpDir = path.join(grandParentDir, "/tmp");
+// Clean up the tmp directory on startup
+cleanTmpDir();
 
-  try {
-    const files = fs.readdirSync(tmpDir);
-    for (const file of files) {
-      const filePath = path.join(tmpDir, file);
-      fs.unlinkSync(filePath);
-      console.log(`Deleted ${file}`);
-    }
-  } catch (err) {
-    console.error("Failed to clean tmp folder on exit:", err.message);
-  }
-}
-
+// Initialize the express app
 const app = express();
+
+// Use the express.json middleware to parse JSON bodies
 app.use(express.json());
 
-// Multer storage logic
+// Multer storage logic for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "tmp/");
@@ -38,17 +29,16 @@ const storage = multer.diskStorage({
   },
 });
 
-// Multer instance with custom storage for files
+// Multer instance with custom storage for file uploads
 const upload = multer({ storage: storage });
-cleanTmpDir();
 
+// POST endpoint to judge a submission
 app.post(
   "/judge",
   upload.fields([{ name: "code", maxCount: 1 }]),
   async (req, res) => {
+    // Get the language and problem ID from the request body
     const { language, problemID } = req.body;
-
-    console.log(req.body);
 
     if (!req.files.code || !language || !problemID) {
       return res
@@ -56,6 +46,7 @@ app.post(
         .json({ error: "ProblemID, code and language are required" });
     }
 
+    // Get the code filename
     const codeFilename = req.files.code[0].filename;
 
     // Validate problem exists
@@ -63,6 +54,7 @@ app.post(
     const inputDir = path.join(problemDir, "input");
     const outputDir = path.join(problemDir, "output");
 
+    // Check if the output directory exists
     if (!fs.existsSync(outputDir)) {
       return res
         .status(400)
@@ -70,30 +62,36 @@ app.post(
     }
 
     try {
-      // Add submission to queue
+      // Add submission to the queue
       const submissionId = await queueManager.addSubmission({
         language,
         problemID,
         codeFilename,
       });
 
+      // Return the submission ID and status
       res.json({
         submissionId,
         status: "queued",
         message: "Submission added to queue for processing",
       });
     } catch (err) {
+      // Return an error if the submission fails to be added to the queue
       console.error("Queue error:", err);
       res.status(500).json({ error: "Internal server error" });
     }
   }
 );
 
-// Get submission status
+// GET endpoint to get the status of a submission
 app.get("/submission/:id", (req, res) => {
+  // Get the submission ID from the request params
   const submissionId = req.params.id;
+
+  // Get the submission status
   const submission = queueManager.getSubmissionStatus(submissionId);
 
+  // Check if the submission exists
   if (!submission) {
     return res.status(404).json({ error: "Submission not found" });
   }
@@ -101,7 +99,7 @@ app.get("/submission/:id", (req, res) => {
   res.json(submission);
 });
 
-// Endpoint to get all available problem IDs
+// GET endpoint to get all available problem IDs
 app.get("/problems", (req, res) => {
   const problemsDir = path.join(__dirname, "../problems");
   let problemIds = [];
@@ -118,16 +116,19 @@ app.get("/problems", (req, res) => {
   }
 });
 
+// Start the server
 const PORT = 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
 
+// Shutdown the server
 const shutdown = () => {
   cleanTmpDir();
   process.exit();
 };
 
+// Shutdown the server on SIGINT, SIGTERM, and exit
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 process.on("exit", shutdown);
