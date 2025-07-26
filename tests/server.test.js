@@ -9,7 +9,7 @@ describe("Server Endpoints", () => {
     const res = await request(app)
       .post("/judge")
       .field("language", "cpp")
-      .field("problemID", "1")
+      .field("problemID", "2")
       .attach(
         "code",
         path.join(__dirname, "../tests/code/cpp/test1/main.cpp"),
@@ -27,7 +27,7 @@ describe("Server Endpoints", () => {
     const submitRes = await request(app)
       .post("/judge")
       .field("language", "cpp")
-      .field("problemID", "1")
+      .field("problemID", "2")
       .attach(
         "code",
         path.join(__dirname, "../tests/code/cpp/test1/main.cpp"),
@@ -36,8 +36,8 @@ describe("Server Endpoints", () => {
 
     const submissionId = submitRes.body.submissionId;
 
-    // Wait a bit for processing
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // Wait longer for processing (problem 2 is faster but still needs time)
+    await new Promise((resolve) => setTimeout(resolve, 3000));
 
     // Then check its status
     const res = await request(app).get(`/submission/${submissionId}`);
@@ -50,7 +50,7 @@ describe("Server Endpoints", () => {
     const res = await request(app)
       .post("/judge")
       .field("language", "python")
-      .field("problemID", "1")
+      .field("problemID", "2")
       .attach(
         "code",
         path.join(__dirname, "../tests/code/python/test1/main.py"),

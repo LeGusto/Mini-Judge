@@ -196,7 +196,10 @@ class QueueManager {
         submission.error = error.message;
         submission.completedAt = new Date();
       }
-      console.error(`Submission ${submissionId} failed:`, error);
+      // Don't log errors during tests
+      if (process.env.NODE_ENV !== "test") {
+        console.error(`Submission ${submissionId} failed:`, error);
+      }
     } finally {
       this.activeWorkers--;
       // Process next submission in queue

@@ -33,11 +33,20 @@ function cleanTmpDir() {
   const tmpDir = path.join(grandParentDir, "/tmp");
 
   try {
+    if (!fs.existsSync(tmpDir)) {
+      return; // Directory doesn't exist, nothing to clean
+    }
+
     const files = fs.readdirSync(tmpDir);
     for (const file of files) {
       const filePath = path.join(tmpDir, file);
-      fs.unlinkSync(filePath);
-      console.log(`Deleted ${file}`);
+      try {
+        fs.unlinkSync(filePath);
+        console.log(`Deleted ${file}`);
+      } catch (fileErr) {
+        // Ignore individual file errors
+        console.log(`Could not delete ${file}: ${fileErr.message}`);
+      }
     }
   } catch (err) {
     console.error("Failed to clean tmp folder on exit:", err.message);
