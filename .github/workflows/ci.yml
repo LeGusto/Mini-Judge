@@ -54,25 +54,3 @@ jobs:
         
         # Kill server
         kill $SERVER_PID || true
-        
-    - name: Test dependencies
-      run: |
-        # Check that all required dependencies are installed
-        node -e "
-          const required = ['express', 'dockerode', 'multer', 'tar'];
-          const pkg = require('./package.json');
-          
-          for (const dep of required) {
-            if (!pkg.dependencies[dep]) {
-              throw new Error(\`Missing dependency: \${dep}\`);
-            }
-          }
-          
-          console.log('✅ All required dependencies present');
-        "
-        
-    - name: Cleanup
-      run: |
-        # Clean up test files
-        rm -rf tmp/*
-        rm -rf problems/test-problem

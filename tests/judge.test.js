@@ -69,6 +69,12 @@ describe("executeCode", () => {
 
         // Copy files to tmp directory as the server would do
         const tmpDir = path.join(__dirname, "../tmp");
+
+        // Ensure tmp directory exists
+        if (!fs.existsSync(tmpDir)) {
+          fs.mkdirSync(tmpDir, { recursive: true });
+        }
+
         const timestamp = Date.now();
         const codeFilename = `${timestamp}_main${fileExtension}`;
         const tmpCodeFilePath = path.join(tmpDir, codeFilename);
