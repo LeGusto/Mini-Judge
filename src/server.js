@@ -4,9 +4,12 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const { cleanTmpDir } = require("./fileUtils");
-
-// Clean up the tmp directory on startup
-cleanTmpDir();
+const { validateBody, validateParams } = require("./middleware");
+const {
+  judgeSubmissionSchema,
+  submissionIdSchema,
+  validateCodeFile,
+} = require("./validation");
 
 // Initialize the express app
 const app = express();
@@ -36,22 +39,27 @@ const upload = multer({ storage: storage });
 app.post(
   "/judge",
   upload.fields([{ name: "code", maxCount: 1 }]),
+  validateBody(judgeSubmissionSchema),
   async (req, res) => {
     // Get the language and problem ID from the request body
     const { language, problemID } = req.body;
 
-    if (!req.files.code || !language || !problemID) {
-      return res
-        .status(400)
-        .json({ error: "ProblemID, code and language are required" });
+    if (!req.files.code) {
+      return res.status(400).json({ error: "Code file is required" });
+    }
+
+    // Validate the uploaded code file
+    const codeFile = req.files.code[0];
+    const validation = validateCodeFile(codeFile, language);
+    if (!validation.success) {
+      return res.status(400).json({ error: validation.error });
     }
 
     // Get the code filename
-    const codeFilename = req.files.code[0].filename;
+    const codeFilename = codeFile.filename;
 
     // Validate problem exists
     const problemDir = path.join("problems", problemID);
-    const inputDir = path.join(problemDir, "input");
     const outputDir = path.join(problemDir, "output");
 
     // Check if the output directory exists
@@ -84,7 +92,7 @@ app.post(
 );
 
 // GET endpoint to get the status of a submission
-app.get("/submission/:id", (req, res) => {
+app.get("/submission/:id", validateParams(submissionIdSchema), (req, res) => {
   // Get the submission ID from the request params
   const submissionId = req.params.id;
 
@@ -118,7 +126,7 @@ app.get("/problems", (req, res) => {
 
 // Start the server
 const PORT = 3000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
 

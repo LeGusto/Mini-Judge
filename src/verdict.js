@@ -1,4 +1,5 @@
 const path = require("path");
+const fs = require("fs");
 
 // Normalize the output text
 function normalize(text) {
@@ -26,13 +27,25 @@ function getVerdict(result, expectedOutput, checkerPath) {
   const actual = normalize(result.output || "");
   const expected = normalize(expectedOutput || "");
 
+  console.log("actual", actual);
+  console.log("expected", expected);
+  console.log("checkerPath", checkerPath);
+
   // Initialize the checker
   let checker;
   if (checkerPath) {
     if (!path.isAbsolute(checkerPath)) {
       checkerPath = path.join(__dirname, "..", checkerPath);
     }
-    checker = require(checkerPath);
+
+    // Check if the checker file exists
+    if (fs.existsSync(checkerPath)) {
+      try {
+        checker = require(checkerPath);
+      } catch (err) {
+        checker = null;
+      }
+    }
   }
 
   // If the checker is provided and returns true, return "Accepted"

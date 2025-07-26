@@ -1,8 +1,32 @@
 const { type } = require("os");
-const config = require("../config");
 const { executeCode } = require("../src/judge");
 const fs = require("fs");
 const path = require("path");
+
+// Ensure tmp directory exists and clean it before each test
+beforeEach(() => {
+  const tmpDir = path.join(__dirname, "../tmp");
+  if (!fs.existsSync(tmpDir)) {
+    fs.mkdirSync(tmpDir, { recursive: true });
+  }
+});
+
+// Clean up tmp directory after each test
+afterAll(() => {
+  const tmpDir = path.join(__dirname, "../tmp");
+  if (fs.existsSync(tmpDir)) {
+    const files = fs.readdirSync(tmpDir);
+    for (const file of files) {
+      const filePath = path.join(tmpDir, file);
+      try {
+        fs.unlinkSync(filePath);
+        console.log(`Cleaned up: ${file}`);
+      } catch (err) {
+        console.error(`Failed to clean up ${file}:`, err.message);
+      }
+    }
+  }
+});
 
 // Append copes of files to tmp folder
 function appendFileToTmp(filePath, fileName) {
@@ -24,11 +48,8 @@ function appendFileToTmp(filePath, fileName) {
   const fileContent = fs.readFileSync(filePath, "utf-8");
   fs.writeFileSync(destinationPath, fileContent);
 
-  setTimeout(() => {
-    if (fs.existsSync(destinationPath)) {
-      fs.unlinkSync(destinationPath);
-    }
-  }, config.settings.tmp_file_TTL);
+  // Return the destination path for cleanup
+  return destinationPath;
 }
 
 describe("executeCode", () => {
@@ -65,35 +86,50 @@ describe("executeCode", () => {
       it(`should execute code in folder: ${subfolder}`, async () => {
         const subfolderPath = path.join(languageFolderPath, subfolder);
         const outputFilePath = path.join(subfolderPath, "output.txt");
-      
+
         const expectedOutput = fs.readFileSync(outputFilePath, "utf-8").trim();
-      
-        const prefix = Date.now() + "_" + path.basename(subfolder) + "_";
-      
+
         const inputFilePath = path.join(subfolderPath, "input.txt");
         const codeFilePath = path.join(subfolderPath, "main" + fileExtension);
-      
-        const inputFilename = fs.existsSync(inputFilePath)
-          ? prefix + path.basename(inputFilePath)
-          : null;
-        const codeFilename = prefix + "main" + fileExtension;
-      
-        appendFileToTmp(codeFilePath, codeFilename);
-        if (inputFilename) {
-          appendFileToTmp(inputFilePath, inputFilename);
+
+        // Copy files to tmp directory as the server would do
+        const tmpDir = path.join(__dirname, "../tmp");
+        const timestamp = Date.now();
+        const codeFilename = `${timestamp}_main${fileExtension}`;
+        const tmpCodeFilePath = path.join(tmpDir, codeFilename);
+
+        // Copy code file to tmp
+        fs.copyFileSync(codeFilePath, tmpCodeFilePath);
+        console.log(`Created tmp file: ${tmpCodeFilePath}`);
+
+        // Copy input file to tmp if it exists
+        let tmpInputFilePath = null;
+        let inputFiles = [];
+        if (fs.existsSync(inputFilePath)) {
+          const inputFilename = `${timestamp}_input.txt`;
+          tmpInputFilePath = path.join(tmpDir, inputFilename);
+          fs.copyFileSync(inputFilePath, tmpInputFilePath);
+          console.log(`Created tmp input file: ${tmpInputFilePath}`);
+          inputFiles = [
+            { filename: inputFilename, absolutePath: tmpInputFilePath },
+          ];
         }
-      
-        const inputFiles = inputFilename
-          ? [{ filename: inputFilename, absolutePath: path.join(__dirname, "../tmp", inputFilename) }]
-          : [];
-      
+
+        // Verify file exists before calling executeCode
+        if (!fs.existsSync(tmpCodeFilePath)) {
+          throw new Error(
+            `Code file was deleted before executeCode could access it: ${tmpCodeFilePath}`
+          );
+        }
+        console.log(`File exists before executeCode: ${tmpCodeFilePath}`);
+
         const language = languageFolder;
         const constraints = {
-          timeLimit: 2,     // seconds
+          timeLimit: 2, // seconds
           memoryLimit: 128, // MB
-          tests: 1
+          tests: 1,
         };
-      
+
         let results;
         try {
           results = await executeCode({
@@ -106,23 +142,22 @@ describe("executeCode", () => {
           console.error(`Execution error in ${subfolder}:`, err.message);
           throw err; // Fail the test
         }
-      
+
         const result = results[0];
         if (!result) {
           throw new Error(`No result returned for ${subfolder}`);
         }
-      
+
         if (result.verdict !== "OK") {
           console.warn(`Verdict: ${result.verdict}`);
           console.warn(`Output: "${result.output}"`);
         }
-      
+
         const cleanOutput = result.output.replace(/[^\x20-\x7E]+/g, "").trim();
         console.log(`Time used: ${result.timeUsed}s`);
-      
+
         expect(cleanOutput).toBe(expectedOutput);
       }, 5000);
-      
     });
   });
 });
