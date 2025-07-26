@@ -191,9 +191,11 @@ class QueueManager {
     } catch (error) {
       // Update submission status to error
       const submission = this.submissions.get(submissionId);
-      submission.status = "error";
-      submission.error = error.message;
-      submission.completedAt = new Date();
+      if (submission) {
+        submission.status = "error";
+        submission.error = error.message;
+        submission.completedAt = new Date();
+      }
       console.error(`Submission ${submissionId} failed:`, error);
     } finally {
       this.activeWorkers--;

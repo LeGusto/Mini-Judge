@@ -1,6 +1,8 @@
 const request = require("supertest");
 const path = require("path");
 const fs = require("fs");
+
+// Use the global server from setup.js
 const app = require("../src/server");
 const { validateCodeFile } = require("../src/validation");
 

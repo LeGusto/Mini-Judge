@@ -124,22 +124,25 @@ app.get("/problems", (req, res) => {
   }
 });
 
-// Start the server
-const PORT = 3000;
-const server = app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+// Start the server only when this file is run directly
+if (require.main === module) {
+  const PORT = 3000;
+  const server = app.listen(PORT, () => {
+    cleanTmpDir();
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
 
-// Shutdown the server
-const shutdown = () => {
-  cleanTmpDir();
-  process.exit();
-};
+  // Shutdown the server
+  const shutdown = () => {
+    cleanTmpDir();
+    process.exit();
+  };
 
-// Shutdown the server on SIGINT, SIGTERM, and exit
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
-process.on("exit", shutdown);
+  // Shutdown the server on SIGINT, SIGTERM, and exit
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+  process.on("exit", shutdown);
+}
 
 module.exports = app;
 

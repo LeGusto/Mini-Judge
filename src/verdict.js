@@ -27,10 +27,6 @@ function getVerdict(result, expectedOutput, checkerPath) {
   const actual = normalize(result.output || "");
   const expected = normalize(expectedOutput || "");
 
-  console.log("actual", actual);
-  console.log("expected", expected);
-  console.log("checkerPath", checkerPath);
-
   // Initialize the checker
   let checker;
   if (checkerPath) {

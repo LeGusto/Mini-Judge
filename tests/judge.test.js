@@ -3,32 +3,7 @@ const { executeCode } = require("../src/judge");
 const fs = require("fs");
 const path = require("path");
 
-// Ensure tmp directory exists and clean it before each test
-beforeEach(() => {
-  const tmpDir = path.join(__dirname, "../tmp");
-  if (!fs.existsSync(tmpDir)) {
-    fs.mkdirSync(tmpDir, { recursive: true });
-  }
-});
-
-// Clean up tmp directory after each test
-afterAll(() => {
-  const tmpDir = path.join(__dirname, "../tmp");
-  if (fs.existsSync(tmpDir)) {
-    const files = fs.readdirSync(tmpDir);
-    for (const file of files) {
-      const filePath = path.join(tmpDir, file);
-      try {
-        fs.unlinkSync(filePath);
-        console.log(`Cleaned up: ${file}`);
-      } catch (err) {
-        console.error(`Failed to clean up ${file}:`, err.message);
-      }
-    }
-  }
-});
-
-// Append copes of files to tmp folder
+// Append copies of files to tmp folder
 function appendFileToTmp(filePath, fileName) {
   const tmpFolderPath = path.join(__dirname, "../tmp");
 
@@ -111,7 +86,7 @@ describe("executeCode", () => {
           fs.copyFileSync(inputFilePath, tmpInputFilePath);
           console.log(`Created tmp input file: ${tmpInputFilePath}`);
           inputFiles = [
-            { filename: inputFilename, absolutePath: tmpInputFilePath },
+            { filename: inputFilename, absolutePath: inputFilePath }, // Use original path, not tmp path
           ];
         }
 
