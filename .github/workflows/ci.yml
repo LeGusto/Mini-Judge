@@ -71,31 +71,6 @@ jobs:
           console.log('✅ All required dependencies present');
         "
         
-    - name: Performance test
-      run: |
-        # Test basic performance characteristics
-        echo "Testing performance characteristics..."
-        
-        # Test file creation speed
-        start=$(date +%s.%N)
-        for i in {1..10}; do
-          echo "test $i" > "tmp/test_$i.txt"
-        done
-        end=$(date +%s.%N)
-        duration=$(echo "$end - $start" | bc)
-        echo "File creation: $duration seconds for 10 files"
-        
-        # Test JSON parsing speed
-        start=$(date +%s.%N)
-        for i in {1..100}; do
-          node -e "JSON.parse('{\"test\": \"value\"}')" > /dev/null
-        done
-        end=$(date +%s.%N)
-        duration=$(echo "$end - $start" | bc)
-        echo "JSON parsing: $duration seconds for 100 operations"
-        
-        echo "✅ Performance tests completed"
-        
     - name: Cleanup
       run: |
         # Clean up test files
