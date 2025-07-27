@@ -124,6 +124,28 @@ app.get("/problems", (req, res) => {
   }
 });
 
+// GET endpoint to serve problem statement PDF
+app.get("/problem/:id/statement", (req, res) => {
+  const problemId = req.params.id;
+  const pdfPath = path.join(
+    __dirname,
+    "../problems",
+    problemId,
+    "statement.pdf"
+  );
+
+  if (!fs.existsSync(pdfPath)) {
+    return res.status(404).json({ error: "Problem statement not found" });
+  }
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `inline; filename="problem_${problemId}_statement.pdf"`
+  );
+  fs.createReadStream(pdfPath).pipe(res);
+});
+
 // Start the server only when this file is run directly
 if (require.main === module) {
   const PORT = 3000;
