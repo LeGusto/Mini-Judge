@@ -124,6 +124,30 @@ app.get("/problems", (req, res) => {
   }
 });
 
+// GET endpoint to get problem metadata
+app.get("/problem/:id/metadata", (req, res) => {
+  const problemId = req.params.id;
+  const metadataPath = path.join(
+    __dirname,
+    "../problems",
+    problemId,
+    "metadata.json"
+  );
+
+  if (!fs.existsSync(metadataPath)) {
+    return res.status(404).json({ error: "Problem metadata not found" });
+  }
+
+  try {
+    const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+    res.json(metadata);
+  } catch (err) {
+    res
+      .status(500)
+      .json({ error: "Failed to read problem metadata", details: err.message });
+  }
+});
+
 // GET endpoint to serve problem statement PDF
 app.get("/problem/:id/statement", (req, res) => {
   const problemId = req.params.id;
@@ -146,12 +170,25 @@ app.get("/problem/:id/statement", (req, res) => {
   fs.createReadStream(pdfPath).pipe(res);
 });
 
+// Health check endpoint
+app.get("/health", (req, res) => {
+  res.json({
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    queue: queueManager.getQueueStats(),
+  });
+});
+
 // Start the server only when this file is run directly
 if (require.main === module) {
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
   const server = app.listen(PORT, () => {
     cleanTmpDir();
     console.log(`Server is running on http://localhost:${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+    console.log(`Max workers: ${process.env.MAX_WORKERS || 3}`);
   });
 
   // Shutdown the server
