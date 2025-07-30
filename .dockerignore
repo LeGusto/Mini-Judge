@@ -6,12 +6,9 @@ README.md
 .env
 .nyc_output
 coverage
-.nyc_output
-.coverage
-*.log
 .DS_Store
-.vscode
-.idea
-*.swp
-*.swo
-*~ 
+*.log
+tmp/*
+!tmp/.gitkeep
+tests/
+jest.config.js

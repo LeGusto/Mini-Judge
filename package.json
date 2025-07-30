@@ -1,7 +1,4 @@
 {
-  "engines": {
-    "node": ">=18.0.0"
-  },
   "dependencies": {
     "dockerode": "^4.0.7",
     "express": "^5.1.0",
@@ -11,18 +8,12 @@
     "zod": "^3.25.76"
   },
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "node src/server.js",
     "test": "jest",
     "test:coverage": "jest --coverage",
     "test:unit": "jest --testPathIgnorePatterns=judge.integration.test.js",
     "test:integration": "jest judge.integration.test.js",
     "test:validation": "jest tests/validation.test.js",
-    "test:watch": "jest --watch",
-    "docker:build": "docker-compose build",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f"
+    "test:watch": "jest --watch"
   },
   "devDependencies": {
     "fs-extra": "^11.3.0",

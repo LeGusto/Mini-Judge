@@ -8,7 +8,7 @@ class QueueManager {
   constructor() {
     this.queue = [];
     this.submissions = new Map();
-    this.maxWorkers = parseInt(process.env.MAX_WORKERS) || 3;
+    this.maxWorkers = 3;
     this.activeWorkers = 0;
     this.submissionCounter = 0;
   }

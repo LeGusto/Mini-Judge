@@ -170,25 +170,12 @@ app.get("/problem/:id/statement", (req, res) => {
   fs.createReadStream(pdfPath).pipe(res);
 });
 
-// Health check endpoint
-app.get("/health", (req, res) => {
-  res.json({
-    status: "healthy",
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-    queue: queueManager.getQueueStats(),
-  });
-});
-
 // Start the server only when this file is run directly
 if (require.main === module) {
-  const PORT = process.env.PORT || 3000;
+  const PORT = 3000;
   const server = app.listen(PORT, () => {
     cleanTmpDir();
     console.log(`Server is running on http://localhost:${PORT}`);
-    console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
-    console.log(`Max workers: ${process.env.MAX_WORKERS || 3}`);
   });
 
   // Shutdown the server
