@@ -239,6 +239,20 @@ class QueueManager {
   //     });
   //   }
   // }
+
+  // Wait for all pending operations to complete
+  async waitForCompletion() {
+    // Wait for all active workers to finish
+    while (this.activeWorkers > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    // Clear all submissions and queue
+    this.submissions.clear();
+    this.queue = [];
+    this.activeWorkers = 0;
+    this.submissionCounter = 0;
+  }
 }
 
 // Create a singleton instance
