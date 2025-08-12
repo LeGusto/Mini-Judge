@@ -111,40 +111,29 @@ app.get("/submission/:id", validateParams(submissionIdSchema), (req, res) => {
 app.get("/problems", (req, res) => {
   const problemsDir = path.join(__dirname, "../problems");
   let problemIds = [];
+  let problemData = [];
   try {
     problemIds = fs.readdirSync(problemsDir).filter((file) => {
       const fullPath = path.join(problemsDir, file);
       return fs.statSync(fullPath).isDirectory();
     });
-    res.json({ problems: problemIds });
+
+    problemIds.forEach((problemId) => {
+      const dataPath = path.join(
+        __dirname,
+        "../problems",
+        problemId,
+        "data.json"
+      );
+      const data = JSON.parse(fs.readFileSync(dataPath, "utf8"));
+      problemData.push({ id: problemId, ...data });
+    });
+
+    res.json({ problems: problemData });
   } catch (err) {
     res
       .status(500)
       .json({ error: "Failed to list problems", details: err.message });
-  }
-});
-
-// GET endpoint to get problem metadata
-app.get("/problem/:id/metadata", (req, res) => {
-  const problemId = req.params.id;
-  const metadataPath = path.join(
-    __dirname,
-    "../problems",
-    problemId,
-    "metadata.json"
-  );
-
-  if (!fs.existsSync(metadataPath)) {
-    return res.status(404).json({ error: "Problem metadata not found" });
-  }
-
-  try {
-    const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
-    res.json(metadata);
-  } catch (err) {
-    res
-      .status(500)
-      .json({ error: "Failed to read problem metadata", details: err.message });
   }
 });
 
@@ -168,6 +157,14 @@ app.get("/problem/:id/statement", (req, res) => {
     `inline; filename="problem_${problemId}_statement.pdf"`
   );
   fs.createReadStream(pdfPath).pipe(res);
+});
+
+app.get("/problem/:id/data", (req, res) => {
+  const problemId = req.params.id;
+  const dataPath = path.join(__dirname, "../problems", problemId, "data.json");
+  if (!fs.existsSync(dataPath)) {
+    return res.status(404).json({ error: "Problem data not found" });
+  }
 });
 
 // Start the server only when this file is run directly
