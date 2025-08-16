@@ -107,29 +107,59 @@ app.get("/submission/:id", validateParams(submissionIdSchema), (req, res) => {
   res.json(submission);
 });
 
-// GET endpoint to get all available problem IDs
+// GET endpoint to get problems with metadata from data.json
+// Optional query: ids=1,2 or ids=1&ids=2
 app.get("/problems", (req, res) => {
   const problemsDir = path.join(__dirname, "../problems");
-  let problemIds = [];
-  let problemData = [];
+
   try {
-    problemIds = fs.readdirSync(problemsDir).filter((file) => {
-      const fullPath = path.join(problemsDir, file);
-      return fs.statSync(fullPath).isDirectory();
-    });
-
-    problemIds.forEach((problemId) => {
-      const dataPath = path.join(
-        __dirname,
-        "../problems",
-        problemId,
-        "data.json"
+    const problemIds = fs
+      .readdirSync(problemsDir)
+      .filter((file) =>
+        fs.statSync(path.join(problemsDir, file)).isDirectory()
       );
-      const data = JSON.parse(fs.readFileSync(dataPath, "utf8"));
-      problemData.push({ id: problemId, ...data });
-    });
 
-    res.json({ problems: problemData });
+    // Parse optional ids filter from query string
+    const rawIds = req.query.ids;
+    let selectedIds = null;
+    if (rawIds) {
+      const list = [];
+      rawIds.forEach((value) => {
+        if (typeof value === "string") {
+          value
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0)
+            .forEach((s) => list.push(s));
+        }
+      });
+      if (list.length > 0) {
+        selectedIds = new Set(list);
+      }
+    }
+
+    const filteredIds = selectedIds
+      ? problemIds.filter((id) => selectedIds.has(id))
+      : problemIds;
+
+    const problems = filteredIds.reduce((acc, problemId) => {
+      const dataPath = path.join(problemsDir, problemId, "data.json");
+      try {
+        if (fs.existsSync(dataPath)) {
+          const data = JSON.parse(fs.readFileSync(dataPath, "utf8"));
+          acc.push({ id: problemId, ...data });
+        } else {
+          // If data.json is missing, still include the id
+          acc.push({ id: problemId });
+        }
+      } catch (e) {
+        // Skip malformed data.json but keep the id visible
+        acc.push({ id: problemId });
+      }
+      return acc;
+    }, []);
+
+    res.json({ problems });
   } catch (err) {
     res
       .status(500)
@@ -157,14 +187,6 @@ app.get("/problem/:id/statement", (req, res) => {
     `inline; filename="problem_${problemId}_statement.pdf"`
   );
   fs.createReadStream(pdfPath).pipe(res);
-});
-
-app.get("/problem/:id/data", (req, res) => {
-  const problemId = req.params.id;
-  const dataPath = path.join(__dirname, "../problems", problemId, "data.json");
-  if (!fs.existsSync(dataPath)) {
-    return res.status(404).json({ error: "Problem data not found" });
-  }
 });
 
 // Start the server only when this file is run directly

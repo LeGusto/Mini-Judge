@@ -14,7 +14,7 @@ const submissionIdSchema = z.object({
 });
 
 // Schema for the /problems endpoint (no body validation needed)
-const problemsSchema = z.object({});
+const problemsSchema = z.array(z.string()).optional();
 
 /**
  * Validates the uploaded code file based on language
