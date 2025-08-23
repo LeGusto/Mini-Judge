@@ -151,7 +151,7 @@ async function runSingleTest({
     try {
       const stats = await container.stats({ stream: false });
       memoryUsed = stats.memory_stats?.usage
-        ? Math.round(stats.memory_stats.usage / (1024 * 1024))
+        ? Math.round(stats.memory_stats.usage)
         : 0;
     } catch {}
 

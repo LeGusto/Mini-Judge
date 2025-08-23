@@ -21,6 +21,7 @@ class QueueManager {
   // Add a submission to the queue
   async addSubmission(submission) {
     const submissionId = this.generateSubmissionId();
+    console.log("Adding submission to queue:", submissionId, submission);
 
     // Create submission data
     const submissionData = {
@@ -30,6 +31,8 @@ class QueueManager {
       language: submission.language,
       problemID: submission.problemID,
       codeFilename: submission.codeFilename,
+      callback_url: submission.callback_url,
+      submission_id: submission.submission_id,
       createdAt: new Date(),
       results: null,
       error: null,
@@ -38,6 +41,12 @@ class QueueManager {
     // Add submission to the submissions map
     this.submissions.set(submissionId, submissionData);
     this.queue.push(submissionId);
+    console.log(
+      "Queue length:",
+      this.queue.length,
+      "Active workers:",
+      this.activeWorkers
+    );
 
     // Start processing if not at capacity
     if (this.activeWorkers < this.maxWorkers) {
@@ -50,12 +59,22 @@ class QueueManager {
   // Process the next submission in the queue
   async processNext() {
     if (this.queue.length === 0 || this.activeWorkers >= this.maxWorkers) {
+      console.log("No submissions to process or at capacity:", {
+        queueLength: this.queue.length,
+        activeWorkers: this.activeWorkers,
+      });
       return;
     }
 
     // Get the next submission Id in the queue
     const submissionId = this.queue.shift();
     this.activeWorkers++;
+    console.log(
+      "Processing submission:",
+      submissionId,
+      "Active workers:",
+      this.activeWorkers
+    );
 
     try {
       // Get the submission
@@ -188,6 +207,9 @@ class QueueManager {
       submission.results = results;
       submission.summary = summary;
       submission.completedAt = new Date();
+
+      // Send callback to competition backend if callback URL is provided
+      await this.sendCallback(submission);
     } catch (error) {
       // Update submission status to error
       const submission = this.submissions.get(submissionId);
@@ -195,6 +217,9 @@ class QueueManager {
         submission.status = "error";
         submission.error = error.message;
         submission.completedAt = new Date();
+
+        // Send callback even for errors
+        await this.sendCallback(submission);
       }
       // Don't log errors during tests
       if (process.env.NODE_ENV !== "test") {
@@ -227,6 +252,87 @@ class QueueManager {
       maxWorkers: this.maxWorkers,
       totalSubmissions: this.submissions.size,
     };
+  }
+
+  // Send results back to the competition backend via callback
+  async sendCallback(submission) {
+    if (!submission.callback_url || !submission.submission_id) {
+      console.log(`No callback URL for submission ${submission.id}`);
+      return;
+    }
+
+    try {
+      // Determine the overall status based on results
+      let overallStatus = "pending";
+      if (submission.status === "completed" && submission.results) {
+        const allAccepted = submission.results.every(
+          (r) => r.verdict === "Accepted"
+        );
+        overallStatus = allAccepted ? "accepted" : "wrong_answer";
+      } else if (submission.status === "error") {
+        overallStatus = "error";
+      }
+
+      // Calculate average execution time and memory usage
+      let avgExecutionTime = 0;
+      let avgMemoryUsed = 0;
+      if (submission.results && submission.results.length > 0) {
+        console.log("Raw submission results:", submission.results);
+        const validResults = submission.results.filter(
+          (r) => r.time !== undefined && r.memory !== undefined
+        );
+        console.log("Valid results after filter:", validResults);
+        if (validResults.length > 0) {
+          avgExecutionTime =
+            validResults.reduce((sum, r) => sum + r.time, 0) /
+            validResults.length;
+          avgMemoryUsed =
+            validResults.reduce((sum, r) => sum + r.memory, 0) /
+            validResults.length;
+        }
+      }
+
+      console.log("Calculated avgExecutionTime:", avgExecutionTime, "seconds");
+      console.log("Sending execution_time:", avgExecutionTime, "milliseconds");
+
+      // Prepare the callback payload
+      const callbackPayload = {
+        submission_id: submission.submission_id,
+        problem_id: submission.problemID,
+        status: overallStatus,
+        judge_response: {
+          results: submission.results,
+          summary: submission.summary,
+          status: submission.status,
+          error: submission.error,
+        },
+        execution_time: avgExecutionTime,
+        memory_used: Math.round(avgMemoryUsed), // Already in MB, convert to KB
+      };
+
+      console.log(
+        `Sending callback to ${submission.callback_url} for submission ${submission.submission_id}`
+      );
+
+      // Send the callback
+      const response = await fetch(submission.callback_url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(callbackPayload),
+        timeout: 10000, // 10 second timeout
+      });
+
+      console.log(
+        `Callback sent successfully for submission ${submission.submission_id}, status: ${response.status}`
+      );
+    } catch (error) {
+      console.error(
+        `Failed to send callback for submission ${submission.submission_id}:`,
+        error.message
+      );
+    }
   }
 
   // Clean up old submissions (keep last 100)

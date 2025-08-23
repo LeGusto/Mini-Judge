@@ -42,7 +42,14 @@ app.post(
   validateBody(judgeSubmissionSchema),
   async (req, res) => {
     // Get the language and problem ID from the request body
-    const { language, problemID } = req.body;
+    const { language, problemID, callback_url, submission_id } = req.body;
+
+    console.log("Received judge request:", {
+      language,
+      problemID,
+      callback_url,
+      submission_id,
+    });
 
     if (!req.files.code) {
       return res.status(400).json({ error: "Code file is required" });
@@ -57,6 +64,7 @@ app.post(
 
     // Get the code filename
     const codeFilename = codeFile.filename;
+    console.log("Code file:", codeFilename);
 
     // Validate problem exists
     const problemDir = path.join("problems", problemID);
@@ -70,12 +78,16 @@ app.post(
     }
 
     try {
-      // Add submission to the queue
+      // Add submission to the queue with callback information
       const submissionId = await queueManager.addSubmission({
         language,
         problemID,
         codeFilename,
+        callback_url,
+        submission_id,
       });
+
+      console.log("Added submission to queue:", submissionId);
 
       // Return the submission ID and status
       res.json({

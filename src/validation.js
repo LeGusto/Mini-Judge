@@ -6,6 +6,8 @@ const path = require("path");
 const judgeSubmissionSchema = z.object({
   language: z.enum(["python", "cpp"]),
   problemID: z.string().min(1),
+  callback_url: z.string().url().optional(),
+  submission_id: z.string().min(1).optional(),
 });
 
 // Schema for the /submission/:id endpoint
