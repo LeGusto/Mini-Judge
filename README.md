@@ -45,6 +45,7 @@ curl -X POST http://localhost:3000/judge \
   -F "code=@your_solution.cpp" \
   -F "language=cpp" \
   -F "problemID=1"
+  -F "callback=@your_callback_server"
 ```
 
 ### Check Submission Status
