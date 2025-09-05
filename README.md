@@ -83,6 +83,7 @@ problems/your_problem/
 - **Output files**: `output/1.out`, `output/2.out`, etc.
 - **File format**: Plain text files
 - **Naming**: Must match exactly (1.in → 1.out)
+- **Problem Statement**: *.pdf (optional)
 
 ## 🔒 Security
 
