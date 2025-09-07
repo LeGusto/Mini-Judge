@@ -45,6 +45,7 @@ curl -X POST http://localhost:3000/judge \
   -F "code=@your_solution.cpp" \
   -F "language=cpp" \
   -F "problemID=1"
+  -F "callback=@your_callback_server"
 ```
 
 ### Check Submission Status
@@ -82,6 +83,7 @@ problems/your_problem/
 - **Output files**: `output/1.out`, `output/2.out`, etc.
 - **File format**: Plain text files
 - **Naming**: Must match exactly (1.in → 1.out)
+- **Problem Statement**: *.pdf (optional)
 
 ## 🔒 Security
 
