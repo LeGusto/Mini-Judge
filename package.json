@@ -1,13 +1,11 @@
 {
-  "dependencies": {
-    "dockerode": "^4.0.7",
-    "express": "^5.1.0",
-    "jest": "^30.0.3",
-    "multer": "^2.0.1",
-    "tar": "^7.4.3",
-    "zod": "^3.25.76"
-  },
+  "name": "mini-judge",
+  "version": "1.0.0",
+  "description": "A Docker-based code judging service for competitive programming",
+  "main": "src/server.js",
   "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
     "test": "jest",
     "test:coverage": "jest --coverage",
     "test:unit": "jest --testPathIgnorePatterns=judge.integration.test.js",
@@ -15,9 +13,28 @@
     "test:validation": "jest tests/validation.test.js",
     "test:watch": "jest --watch"
   },
+  "dependencies": {
+    "dockerode": "^4.0.7",
+    "express": "^5.1.0",
+    "multer": "^2.0.1",
+    "tar": "^7.4.3",
+    "zod": "^3.25.76"
+  },
   "devDependencies": {
     "fs-extra": "^11.3.0",
     "jest": "^30.0.3",
     "supertest": "^7.0.0"
-  }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "judge",
+    "competitive-programming",
+    "docker",
+    "code-evaluation",
+    "online-judge"
+  ],
+  "author": "Mini-Competition Team",
+  "license": "MIT"
 }
