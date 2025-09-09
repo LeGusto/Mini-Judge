@@ -10,6 +10,13 @@ const {
   submissionIdSchema,
   validateCodeFile,
 } = require("./validation");
+const {
+  logInfo,
+  logError,
+  logRequest,
+  logSubmission,
+  logJudge,
+} = require("./simple_logger");
 
 // Initialize the express app
 const app = express();
@@ -44,14 +51,10 @@ app.post(
     // Get the language and problem ID from the request body
     const { language, problemID, callback_url, submission_id } = req.body;
 
-    console.log("Received judge request:", {
-      language,
-      problemID,
-      callback_url,
-      submission_id,
-    });
+    logInfo(`Received judge request: ${language} ${problemID}`);
 
     if (!req.files.code) {
+      logError("Judge request missing code file");
       return res.status(400).json({ error: "Code file is required" });
     }
 
@@ -59,12 +62,13 @@ app.post(
     const codeFile = req.files.code[0];
     const validation = validateCodeFile(codeFile, language);
     if (!validation.success) {
+      logError(`Code file validation failed: ${validation.error}`);
       return res.status(400).json({ error: validation.error });
     }
 
     // Get the code filename
     const codeFilename = codeFile.filename;
-    console.log("Code file:", codeFilename);
+    logInfo(`Code file validated: ${codeFilename}`);
 
     // Validate problem exists
     const problemDir = path.join("problems", problemID);
@@ -72,6 +76,7 @@ app.post(
 
     // Check if the output directory exists
     if (!fs.existsSync(outputDir)) {
+      logError(`Problem output directory not found: ${problemID}`);
       return res
         .status(400)
         .json({ error: "Problem output directory not found" });
@@ -87,7 +92,7 @@ app.post(
         submission_id,
       });
 
-      console.log("Added submission to queue:", submissionId);
+      logSubmission(submissionId, "QUEUED", `${language} ${problemID}`);
 
       // Return the submission ID and status
       res.json({
@@ -97,7 +102,7 @@ app.post(
       });
     } catch (err) {
       // Return an error if the submission fails to be added to the queue
-      console.error("Queue error:", err);
+      logError(`Queue error: ${err.message}`);
       res.status(500).json({ error: "Internal server error" });
     }
   }
