@@ -16,7 +16,7 @@ const {
   logRequest,
   logSubmission,
   logJudge,
-} = require("./simple_logger");
+} = require("./logger");
 
 // Initialize the express app
 const app = express();

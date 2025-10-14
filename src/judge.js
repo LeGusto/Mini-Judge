@@ -138,6 +138,7 @@ async function runSingleTest({
 
     // Start polling memory while container is running
     let maxMemoryUsed = 0;
+    let baselineMemory = 0;
     let containerId = null;
 
     // Get container ID for cgroup file reading
@@ -148,40 +149,63 @@ async function runSingleTest({
       // Could not get container ID for memory tracking
     }
 
+    // Helper function to read memory from cgroup
+    const readContainerMemory = () => {
+      if (!containerId) return 0;
+
+      // cgroup v2 paths (newer Linux systems)
+      const cgroupV2Paths = [
+        `/sys/fs/cgroup/system.slice/docker-${containerId}.scope/memory.current`,
+        `/sys/fs/cgroup/docker/${containerId}/memory.current`,
+      ];
+
+      // cgroup v1 paths (older Linux systems)
+      const cgroupV1Paths = [
+        `/sys/fs/cgroup/memory/docker/${containerId}/memory.usage_in_bytes`,
+        `/sys/fs/cgroup/memory/system.slice/docker-${containerId}.scope/memory.usage_in_bytes`,
+      ];
+
+      const allPaths = [...cgroupV2Paths, ...cgroupV1Paths];
+
+      for (const cgroupPath of allPaths) {
+        try {
+          if (fs.existsSync(cgroupPath)) {
+            const usage = fs.readFileSync(cgroupPath, "utf8").trim();
+            return parseInt(usage, 10);
+          }
+        } catch (err) {
+          // Try next path
+        }
+      }
+      return 0;
+    };
+
+    // Measure baseline memory by tracking minimum memory in first 100ms
+    // This captures the stable container memory after runtime loads but before program allocates
+    let minMemoryObserved = Infinity;
+    let baselineMeasurementCount = 0;
+    const baselineMeasurementTime = 100; // ms
+
     // Poll memory usage from cgroup files
-    const statsInterval = setInterval(async () => {
+    const statsInterval = setInterval(() => {
       try {
-        let currentMemory = 0;
+        const currentMemory = readContainerMemory();
 
-        // Read from cgroup files
-        if (containerId) {
-          // cgroup v2 paths (newer Linux systems)
-          const cgroupV2Paths = [
-            `/sys/fs/cgroup/system.slice/docker-${containerId}.scope/memory.current`,
-            `/sys/fs/cgroup/docker/${containerId}/memory.current`,
-          ];
+        // During first 100ms, track minimum for baseline
+        if (baselineMeasurementCount < baselineMeasurementTime / 10) {
+          minMemoryObserved = Math.min(minMemoryObserved, currentMemory);
+          baselineMeasurementCount++;
 
-          // cgroup v1 paths (older Linux systems)
-          const cgroupV1Paths = [
-            `/sys/fs/cgroup/memory/docker/${containerId}/memory.usage_in_bytes`,
-            `/sys/fs/cgroup/memory/system.slice/docker-${containerId}.scope/memory.usage_in_bytes`,
-          ];
-
-          const allPaths = [...cgroupV2Paths, ...cgroupV1Paths];
-
-          for (const cgroupPath of allPaths) {
-            try {
-              if (fs.existsSync(cgroupPath)) {
-                const usage = fs.readFileSync(cgroupPath, "utf8").trim();
-                currentMemory = parseInt(usage, 10);
-                break;
-              }
-            } catch (err) {
-              // Try next path
-            }
+          // Set baseline after measurement period
+          if (
+            baselineMeasurementCount ===
+            Math.floor(baselineMeasurementTime / 10)
+          ) {
+            baselineMemory = minMemoryObserved;
           }
         }
 
+        // Always track max memory
         maxMemoryUsed = Math.max(maxMemoryUsed, currentMemory);
       } catch (err) {
         // Container stopped or error occurred
@@ -198,7 +222,9 @@ async function runSingleTest({
     clearTimeout(timeoutHandle);
 
     const timeUsed = parseFloat(((endTime - startTime) / 1000).toFixed(3));
-    const memoryUsed = Math.round(maxMemoryUsed);
+    // Subtract baseline container memory to get actual program memory usage
+    const programMemoryUsed = Math.max(0, maxMemoryUsed - baselineMemory);
+    const memoryUsed = Math.round(programMemoryUsed);
 
     // Clean the output
     const cleanOutput = output.replace(/[^\x20-\x7E]+/g, "").trim();

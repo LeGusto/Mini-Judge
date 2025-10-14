@@ -307,7 +307,7 @@ class QueueManager {
           error: submission.error,
         },
         execution_time: avgExecutionTime,
-        memory_used: Math.round(avgMemoryUsed), // Already in MB, convert to KB
+        memory_used: Math.round(avgMemoryUsed), // In bytes
       };
 
       console.log(
