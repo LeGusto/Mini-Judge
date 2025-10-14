@@ -240,7 +240,3 @@ npm run dev
 
 **Adding tests:**
 Put test cases in `tests/code/[language]/test_name/` with `main.[ext]` and `output.txt`
-
-## License
-
-MIT
