@@ -10,7 +10,9 @@ services:
     volumes:
       - ./problems:/app/problems:ro
       - ./tmp:/app/tmp
+      - ./src:/app/src  # Mount source code for hot reload
       - /var/run/docker.sock:/var/run/docker.sock # for dockerode
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro  # Mount cgroup for memory tracking
     environment:
       - NODE_ENV=development
       - MAX_WORKERS=3

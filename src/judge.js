@@ -2,7 +2,6 @@ const docker = require("dockerode")();
 const path = require("path");
 const fs = require("fs");
 const { createTarStream } = require("./fileUtils");
-const os = require("os");
 const { performance } = require("perf_hooks");
 
 /**
@@ -137,23 +136,69 @@ async function runSingleTest({
       container.kill().catch(() => {});
     }, constraints.timeLimit * 1000);
 
+    // Start polling memory while container is running
+    let maxMemoryUsed = 0;
+    let containerId = null;
+
+    // Get container ID for cgroup file reading
+    try {
+      const inspection = await container.inspect();
+      containerId = inspection.Id;
+    } catch (err) {
+      // Could not get container ID for memory tracking
+    }
+
+    // Poll memory usage from cgroup files
+    const statsInterval = setInterval(async () => {
+      try {
+        let currentMemory = 0;
+
+        // Read from cgroup files
+        if (containerId) {
+          // cgroup v2 paths (newer Linux systems)
+          const cgroupV2Paths = [
+            `/sys/fs/cgroup/system.slice/docker-${containerId}.scope/memory.current`,
+            `/sys/fs/cgroup/docker/${containerId}/memory.current`,
+          ];
+
+          // cgroup v1 paths (older Linux systems)
+          const cgroupV1Paths = [
+            `/sys/fs/cgroup/memory/docker/${containerId}/memory.usage_in_bytes`,
+            `/sys/fs/cgroup/memory/system.slice/docker-${containerId}.scope/memory.usage_in_bytes`,
+          ];
+
+          const allPaths = [...cgroupV2Paths, ...cgroupV1Paths];
+
+          for (const cgroupPath of allPaths) {
+            try {
+              if (fs.existsSync(cgroupPath)) {
+                const usage = fs.readFileSync(cgroupPath, "utf8").trim();
+                currentMemory = parseInt(usage, 10);
+                break;
+              }
+            } catch (err) {
+              // Try next path
+            }
+          }
+        }
+
+        maxMemoryUsed = Math.max(maxMemoryUsed, currentMemory);
+      } catch (err) {
+        // Container stopped or error occurred
+        clearInterval(statsInterval);
+      }
+    }, 10); // Poll every 10ms for accurate memory tracking
+
     // Wait for the container to exit
     const [exitResult] = await Promise.all([container.wait(), streamPromise]);
 
-    // Calculate the time used
+    // Stop polling and calculate the time used
+    clearInterval(statsInterval);
     const endTime = performance.now();
     clearTimeout(timeoutHandle);
 
     const timeUsed = parseFloat(((endTime - startTime) / 1000).toFixed(3));
-
-    // Calculate the memory used
-    let memoryUsed = 0;
-    try {
-      const stats = await container.stats({ stream: false });
-      memoryUsed = stats.memory_stats?.usage
-        ? Math.round(stats.memory_stats.usage)
-        : 0;
-    } catch {}
+    const memoryUsed = Math.round(maxMemoryUsed);
 
     // Clean the output
     const cleanOutput = output.replace(/[^\x20-\x7E]+/g, "").trim();
@@ -163,11 +208,14 @@ async function runSingleTest({
     let verdict = "OK";
     let finalOutput = cleanOutput;
 
-    // Set the verdict based on the exit code and time used
+    // Determine verdict based on exit code, time, and memory usage
     if (wasKilled || timeUsed > constraints.timeLimit) {
       verdict = "TLE";
       finalOutput = "Time Limit Exceeded";
-    } else if (exitCode === 137 || memoryUsed > constraints.memoryLimit) {
+    } else if (
+      exitCode === 137 ||
+      memoryUsed > constraints.memoryLimit * 1024 * 1024
+    ) {
       verdict = "MLE";
       finalOutput = "Memory Limit Exceeded";
     } else if (exitCode !== 0) {
