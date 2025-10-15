@@ -1,0 +1,118 @@
+name: Deploy Mini-Judge to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    services:
+      docker:
+        image: docker:dind
+        options: --privileged --shm-size=2g
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Setup Docker client
+      run: |
+        export DOCKER_HOST=tcp://localhost:2375
+        export DOCKER_TLS_VERIFY=0
+        sudo apt-get update
+        sudo apt-get install -y docker.io
+        docker version
+    
+    - name: Start Mini-Judge server
+      run: |
+        export DOCKER_HOST=tcp://localhost:2375
+        export DOCKER_TLS_VERIFY=0
+        
+        # Start server in background
+        npm start &
+        SERVER_PID=$!
+        
+        # Wait for server to start
+        sleep 10
+        
+        # Test that server is running
+        curl -f http://localhost:3000/problems || exit 1
+        
+        # Keep server running for demo
+        echo "Mini-Judge server started successfully!"
+        echo "Server PID: $SERVER_PID"
+        
+        # Create a simple HTML demo page
+        cat > public/index.html << 'EOF'
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Mini-Judge API Demo</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; }
+                .endpoint { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+                .method { background: #007bff; color: white; padding: 3px 8px; border-radius: 3px; font-size: 12px; }
+                .method.get { background: #28a745; }
+                .method.post { background: #dc3545; }
+            </style>
+        </head>
+        <body>
+            <h1>🚀 Mini-Judge API</h1>
+            <p>Your Mini-Judge service is running with Docker-in-Docker support!</p>
+            
+            <h2>Available Endpoints:</h2>
+            
+            <div class="endpoint">
+                <span class="method get">GET</span> <strong>/problems</strong>
+                <p>Get list of available problems</p>
+                <a href="/problems" target="_blank">Test endpoint</a>
+            </div>
+            
+            <div class="endpoint">
+                <span class="method post">POST</span> <strong>/judge</strong>
+                <p>Submit code for judging</p>
+                <p>Parameters: language, problemID, code file</p>
+            </div>
+            
+            <div class="endpoint">
+                <span class="method get">GET</span> <strong>/submission/:id</strong>
+                <p>Get submission status</p>
+            </div>
+            
+            <h2>Docker Support:</h2>
+            <p>✅ Docker-in-Docker enabled</p>
+            <p>✅ Python execution</p>
+            <p>✅ C++ execution</p>
+            <p>✅ Time and memory limits</p>
+            
+            <h2>Integration:</h2>
+            <p>This service integrates with your Mini-Competition platform deployed on Railway!</p>
+        </body>
+        </html>
+        EOF
+        
+        # Keep the server running
+        wait $SERVER_PID
+      env:
+        PORT: 3000

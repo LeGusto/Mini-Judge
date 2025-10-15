@@ -1,4 +1,36 @@
-const { executeCode } = require("./judge");
+const { executeCode: dockerExecuteCode } = require("./judge");
+const { executeCode: cloudExecuteCode } = require("./cloud_judge");
+
+// Function to check if Docker is available
+async function isDockerAvailable() {
+  try {
+    const docker = require("dockerode")();
+    await docker.ping();
+    return true;
+  } catch (error) {
+    console.log("Docker not available, using cloud-compatible execution");
+    return false;
+  }
+}
+
+// Choose execution method based on Docker availability
+let dockerAvailable = false;
+isDockerAvailable().then((available) => {
+  dockerAvailable = available;
+  if (available) {
+    console.log("Using Docker-based code execution");
+  } else {
+    console.log("Using cloud-compatible code execution");
+  }
+});
+
+const executeCode = async (params) => {
+  if (dockerAvailable) {
+    return await dockerExecuteCode(params);
+  } else {
+    return await cloudExecuteCode(params);
+  }
+};
 const { getVerdict } = require("./verdict");
 const path = require("path");
 const fs = require("fs");
