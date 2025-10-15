@@ -211,7 +211,7 @@ npm run test:coverage
 - Requires sudo for Docker access (security consideration)
 - No submission rate limiting yet
 - Queue can overflow with too many submissions
-- Memory measurement uses baseline subtraction (container overhead at startup is subtracted from peak memory)
+- Memory measurement not accurate for all languages
 - No support for interactive problems
 
 ## Future Improvements
