@@ -1,8 +1,25 @@
-const docker = require("dockerode")();
 const path = require("path");
 const fs = require("fs");
 const { createTarStream } = require("./fileUtils");
 const { performance } = require("perf_hooks");
+
+// Try to use Docker, fallback to cloud execution if not available
+let docker = null;
+let useCloudExecution = false;
+
+try {
+  docker = require("dockerode")();
+  // Test Docker connection
+  docker.ping().catch(() => {
+    console.log("Docker not available, using cloud execution");
+    useCloudExecution = true;
+  });
+} catch (err) {
+  console.log("Docker not available, using cloud execution");
+  useCloudExecution = true;
+}
+
+const { executeCode: cloudExecuteCode } = require("./cloud_judge");
 
 /**
  * Executes code in a Docker container for each test case.
@@ -19,6 +36,16 @@ async function executeCode({
   inputFiles = [],
   constraints,
 }) {
+  // Use cloud execution if Docker is not available
+  if (useCloudExecution || !docker) {
+    return cloudExecuteCode({
+      codeFilename,
+      language,
+      inputFiles,
+      constraints,
+    });
+  }
+
   // Check if the language is supported
   if (!LANGUAGE_CONFIG[language]) {
     throw new Error("Unsupported language");
