@@ -205,25 +205,6 @@ npm run test:integration
 # With coverage
 npm run test:coverage
 ```
-
-## Known Issues
-
-- Requires sudo for Docker access (security consideration)
-- No submission rate limiting yet
-- Queue can overflow with too many submissions
-- Memory measurement not accurate for all languages
-- No support for interactive problems
-
-## Future Improvements
-
-- Rate limiting per IP/user
-- Better error messages for compilation failures
-- Support for more languages (Java, Rust, Go)
-- Interactive problem support
-- Batch testing mode
-- Persistent submission history
-- Admin dashboard for monitoring
-
 ## Development
 
 **Project uses:**
